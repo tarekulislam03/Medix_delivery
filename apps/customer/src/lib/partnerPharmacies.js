@@ -1,0 +1,42 @@
+export const PARTNER_PHARMACIES = [
+  {
+    id: 'auto',
+    name: 'Auto-Assign (Fastest Delivery)',
+    area: 'Nearest verified partner with 100% stock',
+    address: 'Nearest Partner Pharmacy, Siliguri',
+    isAuto: true,
+    timing: '15-25 mins',
+  },
+  {
+    id: 'ph-1',
+    name: 'Roy Medical Hall',
+    area: 'Sevoke Road',
+    address: 'Sevoke Road, Siliguri',
+    timing: '20-30 mins',
+    distance: '0.9 km',
+  },
+  {
+    id: 'ph-2',
+    name: 'Das Pharmacy & Surgical',
+    area: 'Hakimpara',
+    address: 'Hakimpara, Siliguri',
+    timing: '20-30 mins',
+    distance: '1.4 km',
+  },
+  {
+    id: 'ph-3',
+    name: 'Medix Partner Chemist',
+    area: 'Hill Cart Road',
+    address: 'Hill Cart Road, Siliguri',
+    timing: '25-35 mins',
+    distance: '1.8 km',
+  },
+  {
+    id: 'ph-4',
+    name: 'Lifeline Medico',
+    area: 'Pradhan Nagar',
+    address: 'Pradhan Nagar, Siliguri',
+    timing: '25-35 mins',
+    distance: '2.5 km',
+  },
+];

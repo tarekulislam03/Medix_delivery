@@ -1,0 +1,73 @@
+services:
+  # 1. MongoDB Database (Tuned for 4GB RAM VPS)
+  mongodb:
+    image: mongo:7.0
+    container_name: medix_mongodb
+    restart: unless-stopped
+    command: ["--wiredTigerCacheSizeGB", "1.5"]
+    environment:
+      MONGO_INITDB_DATABASE: medix_delivery
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "127.0.0.1:27017:27017" # Bound only to localhost for security
+    networks:
+      - medix_network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand(\"ping\").ok' --quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # 2. Node.js Express API Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: medix_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongodb:27017/medix_delivery
+      JWT_SECRET: ${JWT_SECRET:-medix_super_secret_jwt_key_change_in_production}
+    ports:
+      - "0.0.0.0:5000:5000"
+    volumes:
+      - ./server/src:/app/src:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - medix_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 3. Nginx Reverse Proxy & Customer PWA
+  nginx:
+    image: nginx:alpine
+    container_name: medix_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./apps/customer/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - server
+    networks:
+      - medix_network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  medix_network:
+    driver: bridge

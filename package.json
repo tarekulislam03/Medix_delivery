@@ -1,0 +1,16 @@
+{
+  "name": "medix-delivery",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/customer",
+    "server"
+  ],
+  "scripts": {
+    "dev:customer": "npm --prefix apps/customer run dev",
+    "dev:server": "npm --prefix server run dev",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  }
+}

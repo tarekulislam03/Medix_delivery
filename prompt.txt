@@ -1,0 +1,36 @@
+Build the Orders page (/orders) in apps/customer/src/pages/Orders.jsx. Mobile-first, max-w-md, existing Tailwind tokens (brand green, ink, surface, shadow-card, rounded-card), Inter font. Use mock data in src/lib/mockOrders.js for now, no backend calls. The bottom navbar is fixed, so use pb-24 plus the safe-area inset.
+
+Customer-facing statuses (map the backend states to these):
+- SEARCHING (finding a pharmacy; backend PLACED/OFFERED)
+- CONFIRMED (pharmacy accepted)
+- PACKED
+- OUT_FOR_DELIVERY (picked up by rider)
+- DELIVERED
+- CANCELLED
+Define them in src/lib/orderStatus.js with label, color, and step index. Colors: amber (searching), blue (confirmed, packed, out for delivery), green (delivered), red (cancelled).
+
+Layout, top to bottom:
+1. Header "Your orders" with two tabs, "Active" and "Past", using a sliding underline (framer-motion layoutId, transform only).
+2. Active tab: for each active order, a large white card with:
+   - Order ID (e.g. #MD1042), placed time, and a status badge.
+   - A vertical or horizontal status stepper (Placed, Confirmed, Packed, Out for delivery, Delivered) with the current step highlighted in brand green, completed steps checked, and a pulsing dot on the current step.
+   - A live ETA line ("Arriving in about 25 min") shown only when OUT_FOR_DELIVERY.
+   - Pharmacy name (shown from CONFIRMED onward), rider name and a "Call rider" tel: button (shown only when OUT_FOR_DELIVERY).
+   - Collapsible item list (name x qty) and the bill summary (items, delivery, platform fee, total, payment method).
+   - A "Cancel order" text button shown only in SEARCHING and CONFIRMED, opening a confirm bottom sheet with reason chips.
+   - A SEARCHING state with a subtle animated shimmer and the text "Finding a nearby pharmacy..." plus a note that it takes about 2 minutes.
+3. Past tab: compact cards with date, item summary ("Paracetamol 500mg + 2 more"), total, status badge, and a "Reorder" button that adds all items to the zustand cart and navigates to /cart. Tapping a card opens an order details bottom sheet with full items, bill, address, payment method, and a "Need help?" button.
+4. Group past orders by month with sticky month labels.
+5. Empty states: Active empty ("No active orders" with a "Search medicines" button to /search), Past empty ("No orders yet").
+6. Loading state: 3 skeleton cards (simulate 400ms).
+7. Pull-to-refresh is not needed; add a small refresh icon button that re-fetches and spins while loading. Structure the data hook (src/lib/useOrders.js) with TanStack Query and refetchInterval of 10s while any order is active, so wiring the real API later is a one-line change.
+
+Rules:
+- Animate only transform and opacity, 150-250ms ease-out. Use AnimatePresence with layout for tab content and the collapsible sections. whileTap={{ scale: 0.97 }} on buttons and cards.
+- Minimum 44px tap targets, touch-manipulation on interactive elements.
+- Prices via Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }) and tabular-nums on amounts.
+- Format times with relative text for today ("Today, 4:32 PM") and a short date otherwise.
+- Small reusable components in src/components: OrderCard, StatusStepper, StatusBadge, OrderDetailsSheet, BottomSheet (reuse the existing one), SkeletonCard (reuse).
+- After placing an order from the Cart page, the new order must appear first in Active with the SEARCHING status (add it to the mock store).
+
+Do not build real tracking maps, auth or API integration. Confirm the page renders with no console errors and the tabs switch smoothly.
