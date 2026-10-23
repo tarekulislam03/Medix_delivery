@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '../lib/i18n';
 
 export default function BottomSheet({ isOpen, onClose, title, children }) {
+  const t = useT();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [visibleHeight, setVisibleHeight] = useState('85dvh');
   const sheetRef = useRef(null);
@@ -96,13 +98,14 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
           {/* Sheet container */}
           <motion.div
             ref={sheetRef}
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
             style={{
               maxHeight: visibleHeight,
               marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : '0px',
+              paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
               transition: 'margin-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             className="relative w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-elevated z-10 overflow-y-auto overscroll-contain"
@@ -117,8 +120,8 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center touch-manipulation cursor-pointer"
-                  aria-label="Close"
+                  className="min-w-[40px] min-h-[40px] rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 flex items-center justify-center touch-manipulation cursor-pointer transition-transform"
+                  aria-label={t('Close')}
                 >
                   <X className="w-4 h-4 text-gray-600" />
                 </button>

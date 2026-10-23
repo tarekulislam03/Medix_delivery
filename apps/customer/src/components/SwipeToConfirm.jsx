@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { ChevronRight, ArrowRight, Check } from 'lucide-react';
 import { formatPrice } from '../lib/fees';
+import { useT } from '../lib/i18n';
 
 export default function SwipeToConfirm({ onConfirm, total = 0, isSubmitting = false }) {
+  const t = useT();
   const trackRef = useRef(null);
   const [maxDrag, setMaxDrag] = useState(200);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -68,7 +70,7 @@ export default function SwipeToConfirm({ onConfirm, total = 0, isSubmitting = fa
         className="absolute inset-0 flex items-center justify-center pointer-events-none px-12"
       >
         <div className="flex items-center gap-1 text-xs font-bold text-emerald-900 tracking-wide uppercase">
-          <span>Swipe to place order</span>
+          <span>{t('Swipe to place order')}</span>
           <motion.div
             animate={{ x: [0, 4, 0] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
@@ -78,7 +80,7 @@ export default function SwipeToConfirm({ onConfirm, total = 0, isSubmitting = fa
             <ChevronRight className="w-3.5 h-3.5" />
           </motion.div>
           {total > 0 && (
-            <span className="font-display font-bold text-brand-green ml-1 tabular-nums">
+            <span className="font-bold text-brand-green ml-1 tabular-nums">
               · {formatPrice(total)}
             </span>
           )}

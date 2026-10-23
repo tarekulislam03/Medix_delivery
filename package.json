@@ -11,6 +11,8 @@
     "dev:server": "npm --prefix server run dev",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "tunnel": "cloudflared tunnel --url http://localhost:5173",
+    "tunnel:api": "cloudflared tunnel --url http://localhost:5000"
   }
 }

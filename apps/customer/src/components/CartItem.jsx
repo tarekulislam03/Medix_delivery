@@ -3,48 +3,47 @@ import { Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import QtyStepper from './QtyStepper';
 import { formatPrice } from '../lib/fees';
+import { useT } from '../lib/i18n';
 
 export default function CartItem({ item, onIncrement, onDecrement, onRemove }) {
+  const t = useT();
   const lineTotal = item.price * item.quantity;
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{
         opacity: 0,
+        scale: 0.96,
         height: 0,
         marginBottom: 0,
         paddingTop: 0,
         paddingBottom: 0,
         overflow: 'hidden',
       }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="bg-surface rounded-card shadow-card border border-gray-100 p-4 relative"
+      transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+      className="bg-white rounded-2xl border border-black/[0.05] p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         {/* Medicine Details */}
         <div className="flex-1 min-w-0 pr-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="font-semibold text-sm text-ink truncate">{item.name}</h4>
-            {item.requiresRx && (
-              <span className="text-[11px] font-bold text-rose-600 shrink-0">
-                Rx Required
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-ink-light mt-0.5 truncate">{item.strength}</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xs text-ink-lighter tabular-nums">{formatPrice(item.price)} each</span>
-            <span className="text-sm font-bold text-brand-green font-display tabular-nums">
+          <h4 className="font-semibold text-sm text-gray-950 tracking-tight truncate">
+            {item.name}
+          </h4>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xs text-gray-400 font-medium tabular-nums">
+              {t('{price} each', { price: formatPrice(item.price) })}
+            </span>
+            <span className="text-sm font-bold text-gray-900 tabular-nums">
               {formatPrice(lineTotal)}
             </span>
           </div>
         </div>
 
         {/* Stepper & Trash Action */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <QtyStepper
             quantity={item.quantity}
             onIncrement={() => onIncrement(item.id)}
@@ -54,14 +53,12 @@ export default function CartItem({ item, onIncrement, onDecrement, onRemove }) {
           <motion.button
             type="button"
             onClick={() => onRemove(item.id)}
-            whileTap={{ scale: 0.95 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-red-500 rounded-full touch-manipulation transition-colors"
+            whileTap={{ scale: 0.88 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 400 }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 touch-manipulation transition-colors cursor-pointer select-none"
             aria-label={`Remove ${item.name} from cart`}
           >
-            <div className="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center">
-              <Trash2 className="w-4 h-4" />
-            </div>
+            <Trash2 className="w-4 h-4 stroke-[2]" />
           </motion.button>
         </div>
       </div>

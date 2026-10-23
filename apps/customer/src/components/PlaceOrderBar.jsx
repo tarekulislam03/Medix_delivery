@@ -2,36 +2,38 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Lock } from 'lucide-react';
 import { formatPrice } from '../lib/fees';
+import { useT } from '../lib/i18n';
 
 export default function PlaceOrderBar({ bill, onPlaceOrder, isSubmitting = false }) {
+  const t = useT();
   const { total, canOrder, toMin } = bill;
 
   return (
-    <div className="w-full pt-3">
+    <div className="w-full pt-2">
       <motion.button
         type="button"
         onClick={onPlaceOrder}
         disabled={!canOrder || isSubmitting}
         whileTap={canOrder ? { scale: 0.98 } : {}}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className={`w-full min-h-[50px] px-5 py-3 rounded-pill flex items-center justify-between font-bold text-sm transition-colors touch-manipulation ${
+        transition={{ type: 'spring', damping: 20, stiffness: 400 }}
+        className={`w-full h-12 px-5 rounded-2xl flex items-center justify-between font-bold text-sm tracking-tight transition-all select-none touch-manipulation ${
           canOrder
-            ? 'bg-brand-green hover:bg-brand-dark text-white cursor-pointer shadow-md'
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+            ? 'bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer shadow-sm active:bg-emerald-900'
+            : 'bg-gray-100 text-gray-400 border border-black/[0.04] cursor-not-allowed shadow-none'
         }`}
-        aria-label={canOrder ? `Place order of ${formatPrice(total)}` : `Add ${formatPrice(toMin)} to place order`}
+        aria-label={canOrder ? t('Place order · {amount}', { amount: formatPrice(total) }) : t('Add {amount} to place order', { amount: formatPrice(toMin) })}
       >
         {canOrder ? (
           <>
-            <div className="flex items-center gap-2 font-display tabular-nums">
+            <div className="flex items-center gap-2 tabular-nums">
               <Lock className="w-4 h-4 text-white/80" />
-              <span>Place order · {formatPrice(total)}</span>
+              <span>{t('Place order · {amount}', { amount: formatPrice(total) })}</span>
             </div>
-            <ArrowRight className="w-5 h-5 text-white/90" />
+            <ArrowRight className="w-4 h-4 stroke-[2.25] text-white/90" />
           </>
         ) : (
           <div className="w-full text-center">
-            <span>Add {formatPrice(toMin)} to place order</span>
+            <span>{t('Add {amount} to place order', { amount: formatPrice(toMin) })}</span>
           </div>
         )}
       </motion.button>

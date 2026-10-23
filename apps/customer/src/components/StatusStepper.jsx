@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { ORDER_STATUSES } from '../lib/orderStatus';
+import { useT } from '../lib/i18n';
 
 const TIMELINE_STEPS = [
   {
@@ -35,28 +36,27 @@ const TIMELINE_STEPS = [
   },
 ];
 
-export default function StatusStepper({ status }) {
+export default function StatusStepper({ status, deliveryOtp }) {
+  const t = useT();
   const currentConfig = ORDER_STATUSES[status];
   const activeStepIndex = currentConfig ? currentConfig.stepIndex : 0;
   const isSearching = status === 'SEARCHING';
 
   if (status === 'CANCELLED') {
     return (
-      <div className="py-2.5 px-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold text-center border border-red-200/60">
-        Order was cancelled
+      <div className="py-2.5 px-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold text-center border border-red-200/60 select-none">
+        {t('Order was cancelled')}
       </div>
     );
   }
 
   return (
-    <div className="py-2 pl-1 pr-2">
+    <div className="py-2 pl-1 pr-2 select-none">
       <div className="relative">
         {TIMELINE_STEPS.map((step, idx) => {
           const isCompleted = step.index < activeStepIndex;
           const isCurrent = step.index === activeStepIndex;
           const isLast = idx === TIMELINE_STEPS.length - 1;
-
-          // Connecting line color
           const isLineCompleted = step.index < activeStepIndex;
 
           return (
@@ -67,11 +67,11 @@ export default function StatusStepper({ status }) {
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
                     isCompleted
-                      ? 'bg-brand-green text-white shadow-xs'
+                      ? 'bg-emerald-700 text-white shadow-xs'
                       : isCurrent
                       ? isSearching
                         ? 'bg-amber-500 text-white ring-4 ring-amber-100 animate-pulse'
-                        : 'bg-brand-green text-white ring-4 ring-emerald-100 shadow-sm'
+                        : 'bg-emerald-700 text-white ring-4 ring-emerald-100/80 shadow-xs'
                       : 'bg-white border-2 border-gray-200 text-transparent'
                   }`}
                 >
@@ -86,7 +86,7 @@ export default function StatusStepper({ status }) {
                 {!isLast && (
                   <div
                     className={`w-0.5 my-1 transition-colors ${
-                      isLineCompleted ? 'bg-brand-green' : 'bg-gray-200'
+                      isLineCompleted ? 'bg-emerald-600' : 'bg-gray-200'
                     }`}
                     style={{ minHeight: isCurrent ? '34px' : '22px' }}
                   />
@@ -97,27 +97,44 @@ export default function StatusStepper({ status }) {
               <div className={`min-w-0 flex-1 ${!isLast ? 'pb-3' : 'pb-0'}`}>
                 <div>
                   <p
-                    className={`text-xs leading-snug ${
+                    className={`text-xs leading-snug tracking-tight ${
                       isCurrent
                         ? isSearching
                           ? 'font-bold text-amber-700'
-                          : 'font-bold text-brand-green'
+                          : 'font-bold text-emerald-800'
                         : isCompleted
-                        ? 'font-semibold text-ink'
+                        ? 'font-semibold text-gray-950'
                         : 'font-medium text-gray-400'
                     }`}
                   >
-                    {isCurrent && isSearching ? 'Finding nearby pharmacy...' : step.label}
+                    {isCurrent && isSearching ? t('Finding nearby pharmacy...') : t(step.label)}
                   </p>
                 </div>
 
                 {/* Subtitle / Description shown for active or searching step */}
                 {isCurrent && (
-                  <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                  <p className="text-[11px] text-gray-500 font-medium mt-0.5 leading-snug">
                     {isSearching
-                      ? 'Connecting with partner pharmacies in your area...'
-                      : step.activeSubtitle}
+                      ? t('Connecting with partner pharmacies in your area...')
+                      : t(step.activeSubtitle)}
                   </p>
+                )}
+
+                {/* Delivery OTP shown directly below Out for Delivery */}
+                {step.key === 'OUT_FOR_DELIVERY' && isCurrent && (
+                  <div className="mt-2.5 p-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                        {t('Delivery OTP')}
+                      </span>
+                      <span className="text-[11px] text-gray-600 font-medium">
+                        {t('Give to rider upon receiving order:')}
+                      </span>
+                    </div>
+                    <span className="text-base font-mono font-bold tracking-widest text-emerald-900 bg-white px-2.5 py-0.5 rounded-xl border border-emerald-200/60 shadow-xs">
+                      {deliveryOtp || '----'}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

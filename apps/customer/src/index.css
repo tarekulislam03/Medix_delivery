@@ -3,26 +3,127 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
-    font-family: "Inter Variable", "Noto Sans Bengali", system-ui, sans-serif;
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
+
+  html, body {
+    font-family: "Inter Variable", "Noto Sans Bengali", system-ui, -apple-system, sans-serif;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: "Plus Jakarta Sans Variable", "Inter Variable", sans-serif;
+  }
+
+  /* Bengali: Noto Sans Bengali leads the stack for all text */
+  html[lang="bn"],
+  html[lang="bn"] body,
+  html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3,
+  html[lang="bn"] h4, html[lang="bn"] h5, html[lang="bn"] h6,
+  html[lang="bn"] .font-sans,
+  html[lang="bn"] .font-display {
+    font-family: "Noto Sans Bengali", "Inter Variable", system-ui, -apple-system, sans-serif;
+  }
+
+  /* Prevent iOS zoom by enforcing 16px on coarse pointers */
+  @media (pointer: coarse) {
+    input, textarea, select {
+      font-size: 16px;
+    }
+  }
+
+  /* Native touch-action and control rules */
+  button, a, [role="button"], input[type="button"], input[type="submit"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, [role="button"], .tab, .chip {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 }
 
 @layer utilities {
-  /* Hide scrollbar for Chrome, Safari and Opera */
+  /* Safe area insets for notches, dynamic islands, home bars */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mt-safe {
+    margin-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Hide scrollbar */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .touch-manipulation {
     touch-action: manipulation;
+  }
+
+  /* Flat UI Elements */
+  .flat-font {
+    font-family: 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+  }
+
+  .flat-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    color: #1e293b;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.12s ease-out, transform 0.1s ease-out;
+  }
+  .flat-btn:active {
+    transform: scale(0.97);
+    background-color: #e2e8f0;
+  }
+
+  .flat-btn-primary {
+    background-color: #059669;
+    color: #ffffff;
+    border: 1px solid #047857;
+  }
+  .flat-btn-primary:active {
+    transform: scale(0.97);
+    background-color: #065f46;
+  }
+
+  .flat-tab {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.12s ease-out, border-color 0.12s ease-out;
+  }
+  .flat-tab.active {
+    color: #059669;
+    border-bottom: 2px solid #059669;
+    font-weight: 700;
   }
 }

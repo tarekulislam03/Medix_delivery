@@ -3,8 +3,10 @@ import { MapPin, Check, Building2, Hash, Landmark, User } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import { useLocationStore } from '../store/locationStore';
 import { useUserStore } from '../store/userStore';
+import { useT } from '../lib/i18n';
 
 export default function LocationSheet({ isOpen, onClose, onSaved }) {
+  const t = useT();
   const currentFullName = useLocationStore((state) => state.fullName);
   const currentAddress = useLocationStore((state) => state.address);
   const currentVillagePo = useLocationStore((state) => state.villagePo);
@@ -37,15 +39,15 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
   const handleSubmit = (e) => {
     e?.preventDefault?.();
     if (!fullName.trim()) {
-      setError('Please enter your name');
+      setError(t('Please enter your name'));
       return;
     }
     if (!villagePo.trim()) {
-      setError('Please enter your Village & Post Office');
+      setError(t('Please enter your Village & Post Office'));
       return;
     }
     if (!pinCode.trim() || pinCode.trim().length < 6) {
-      setError('Please enter a valid 6-digit PIN Code');
+      setError(t('Please enter a valid 6-digit PIN Code'));
       return;
     }
 
@@ -73,10 +75,10 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Delivery Address">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('Delivery Address')}>
       <div className="pb-3">
         <p className="text-xs text-ink-light -mt-1 mb-3">
-          Enter where to deliver your medicines
+          {t('Enter where to deliver your medicines')}
         </p>
 
         {/* Manual Address Form */}
@@ -91,7 +93,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-brand-green" />
-              <span>Your Name *</span>
+              <span>{t('Your Name *')}</span>
             </label>
             <input
               type="text"
@@ -107,7 +109,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5 flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-brand-green" />
-              <span>Village & Post Office *</span>
+              <span>{t('Village & Post Office *')}</span>
             </label>
             <input
               type="text"
@@ -122,7 +124,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5 flex items-center gap-1.5">
               <Hash className="w-3.5 h-3.5 text-brand-green" />
-              <span>PIN Code *</span>
+              <span>{t('PIN Code *')}</span>
             </label>
             <input
               type="text"
@@ -139,8 +141,8 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5 flex items-center gap-1.5">
               <Landmark className="w-3.5 h-3.5 text-brand-green" />
-              <span>Nearest Landmark</span>
-              <span className="text-[11px] font-normal text-gray-400">(Optional)</span>
+              <span>{t('Nearest Landmark')}</span>
+              <span className="text-[11px] font-normal text-gray-400">{t('(Optional)')}</span>
             </label>
             <input
               type="text"
@@ -156,7 +158,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
             type="submit"
             className="w-full h-11 mt-2 bg-brand-green hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors touch-manipulation flex items-center justify-center gap-1.5 tracking-wide uppercase cursor-pointer"
           >
-            <span>Save & Continue</span>
+            <span>{t('Save & Continue')}</span>
           </button>
         </form>
 
@@ -164,7 +166,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
         {savedAddresses.length > 0 && (
           <div className="pt-5 mt-4 border-t border-gray-100 space-y-2">
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block px-0.5">
-              Saved Addresses
+              {t('Saved Addresses')}
             </span>
 
             <div className="space-y-2 max-h-44 overflow-y-auto">
@@ -191,7 +193,7 @@ export default function LocationSheet({ isOpen, onClose, onSaved }) {
                           {item?.fullName ? `${item.fullName} · ` : ''}{item?.villagePo || item?.address}
                         </p>
                         <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {item?.landmark ? `Near ${item.landmark} · ` : ''}PIN: {item?.pinCode || ''}
+                          {item?.landmark ? t('Near {landmark}', { landmark: item.landmark }) + ' · ' : ''}{t('PIN: {pin}', { pin: item?.pinCode || '' })}
                         </p>
                       </div>
                     </div>

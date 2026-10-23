@@ -1,7 +1,20 @@
+import { useLangStore, translate } from './i18n';
+
+const currentLocale = () => (useLangStore.getState().lang === 'bn' ? 'bn-IN' : 'en-IN');
+const currentLang = () => useLangStore.getState().lang;
+
 export const ORDER_STATUSES = {
   SEARCHING: {
     key: 'SEARCHING',
     label: 'Finding Pharmacy',
+    stepIndex: 0,
+    color: 'amber',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/60',
+    dotClass: 'bg-amber-500',
+  },
+  PLACED: {
+    key: 'PLACED',
+    label: 'Order Placed',
     stepIndex: 0,
     color: 'amber',
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200/60',
@@ -57,7 +70,7 @@ export const STEPPER_STEPS = [
   { key: 'DELIVERED', label: 'Delivered', index: 4 },
 ];
 
-export const ACTIVE_STATUS_KEYS = ['SEARCHING', 'CONFIRMED', 'PACKED', 'OUT_FOR_DELIVERY'];
+export const ACTIVE_STATUS_KEYS = ['SEARCHING', 'PLACED', 'CONFIRMED', 'PACKED', 'OUT_FOR_DELIVERY'];
 export const PAST_STATUS_KEYS = ['DELIVERED', 'CANCELLED'];
 
 /**
@@ -75,17 +88,17 @@ export function formatOrderTime(dateInput) {
     date.getMonth() === now.getMonth() &&
     date.getFullYear() === now.getFullYear();
 
-  const timeString = date.toLocaleTimeString('en-IN', {
+  const timeString = date.toLocaleTimeString(currentLocale(), {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
 
   if (isToday) {
-    return `Today, ${timeString}`;
+    return `${translate(currentLang(), 'Today')}, ${timeString}`;
   }
 
-  const dateString = date.toLocaleDateString('en-IN', {
+  const dateString = date.toLocaleDateString(currentLocale(), {
     day: 'numeric',
     month: 'short',
   });
@@ -98,11 +111,11 @@ export function formatOrderTime(dateInput) {
  * e.g. "October 2026"
  */
 export function formatMonthYear(dateInput) {
-  if (!dateInput) return 'Past Orders';
+  if (!dateInput) return translate(currentLang(), 'Past Orders');
   const date = new Date(dateInput);
-  if (isNaN(date.getTime())) return 'Past Orders';
+  if (isNaN(date.getTime())) return translate(currentLang(), 'Past Orders');
 
-  return date.toLocaleDateString('en-IN', {
+  return date.toLocaleDateString(currentLocale(), {
     month: 'long',
     year: 'numeric',
   });

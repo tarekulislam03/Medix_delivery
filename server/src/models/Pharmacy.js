@@ -7,17 +7,25 @@ const pharmacySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    location: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point',
-        required: true,
-      },
-      coordinates: {
-        type: [Number], // [longitude, latitude]
-        required: true,
-      },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+    password: {
+      type: String,
+      default: '',
+    },
+    address: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    area: {
+      type: String,
+      default: '',
+      trim: true,
     },
     isOpen: {
       type: Boolean,
@@ -27,13 +35,15 @@ const pharmacySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    notes: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,
   }
 );
-
-pharmacySchema.index({ location: '2dsphere' });
 
 const Pharmacy = mongoose.model('Pharmacy', pharmacySchema);
 export default Pharmacy;

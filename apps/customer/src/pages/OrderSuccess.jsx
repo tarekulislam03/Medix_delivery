@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   MapPin,
@@ -12,30 +13,39 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { formatPrice } from '../lib/fees';
+import { useT } from '../lib/i18n';
 
 // Confetti pieces generation
 const CONFETTI_COLORS = ['#059669', '#10b981', '#34d399', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];
 const CONFETTI_SHAPES = ['circle', 'rect', 'strip'];
 
 export default function OrderSuccess() {
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
-  const order = location.state?.order || {
-    id: 'MDX-DEMO',
-    address: 'Binnaguri, 734001',
-    paymentMethod: 'UPI',
-    bill: { total: 233 },
-    items: [],
-  };
+  const order = location.state?.order;
+
+  // Invalidate and refetch orders so Orders screen always has the latest data
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+  }, [queryClient]);
+
+  // If directly navigated without an active order, redirect to orders tab
+  useEffect(() => {
+    if (!order) {
+      navigate('/orders', { replace: true });
+    }
+  }, [order, navigate]);
 
   const payload = location.state?.payload || {};
   const customerName = payload.customerName || payload.address?.fullName || 'Customer';
-  const villagePo = payload.address?.villagePo || order.address || 'Your Address';
+  const villagePo = payload.address?.villagePo || order?.address || 'Your Address';
   const pinCode = payload.address?.pinCode || '';
   const landmark = payload.address?.landmark || '';
-  const totalAmount = order.bill?.total || payload.bill?.total || 0;
-  const paymentMethod = order.paymentMethod || 'UPI';
+  const totalAmount = order?.bill?.total || payload.bill?.total || 0;
+  const paymentMethod = order?.paymentMethod || 'Cash on Delivery';
 
   // Generate 28 confetti pieces with randomized angles, distances, and delays
   const confettiPieces = useMemo(() => {
@@ -57,7 +67,9 @@ export default function OrderSuccess() {
   }, []);
 
   const handleDone = () => {
-    navigate('/orders');
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    queryClient.refetchQueries({ queryKey: ['orders'] });
+    navigate('/orders', { replace: true });
   };
 
   return (
@@ -155,13 +167,13 @@ export default function OrderSuccess() {
           className="space-y-1.5"
         >
           <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase tracking-wider mb-1">
-            <span>Order Confirmed</span>
+            <span>{t('Order Confirmed')}</span>
           </div>
           <h1 className="text-2xl font-bold text-ink tracking-tight font-display">
-            Order Placed Successfully!
+            {t('Order Placed Successfully!')}
           </h1>
           <p className="text-xs text-ink-light max-w-[280px] mx-auto leading-relaxed">
-            Your order has been sent to our verified partner pharmacy in your area.
+            {t('Your order has been sent to our verified partner pharmacy in your area.')}
           </p>
         </motion.div>
 
@@ -190,7 +202,7 @@ export default function OrderSuccess() {
           {/* Order ID Row */}
           <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 text-xs">
             <span className="text-ink-lighter uppercase font-bold text-[10px] tracking-wider">
-              Order Number
+              {t('Order Number')}
             </span>
             <span className="font-mono font-bold text-ink bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
               #{order.id}
@@ -216,11 +228,11 @@ export default function OrderSuccess() {
           <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 text-xs">
             <div className="flex items-center gap-1.5 text-gray-500">
               <CreditCard className="w-3.5 h-3.5 text-gray-400" />
-              <span>{paymentMethod === 'cod' || paymentMethod === 'Cash on delivery' ? 'Cash on Delivery' : 'Online / UPI'}</span>
+              <span>{paymentMethod === 'cod' || paymentMethod === 'Cash on delivery' ? t('Cash on Delivery') : t('Online / UPI')}</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-[10px] text-gray-400 uppercase">Total:</span>
-              <span className="text-sm font-bold text-brand-green font-display">
+              <span className="text-[10px] text-gray-400 uppercase">{t('Total:')}</span>
+              <span className="text-sm font-bold text-brand-green tabular-nums">
                 {formatPrice(totalAmount)}
               </span>
             </div>
@@ -241,7 +253,7 @@ export default function OrderSuccess() {
           className="w-full h-12 bg-brand-green hover:bg-emerald-700 active:scale-[0.99] text-white text-sm font-bold rounded-pill shadow-elevated transition-all touch-manipulation flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer"
         >
           <Check className="w-4 h-4 stroke-[3]" />
-          <span>Done</span>
+          <span>{t('Done')}</span>
         </button>
       </motion.div>
     </div>

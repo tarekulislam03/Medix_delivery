@@ -7,6 +7,10 @@ import medicineRoutes from './routes/medicineRoutes.js';
 import locationRoutes from './routes/locationRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import cartRoutes from './routes/cartRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import riderRoutes from './routes/riderRoutes.js';
+import pharmacyRoutes from './routes/pharmacyRoutes.js';
 
 dotenv.config();
 
@@ -24,6 +28,10 @@ app.use('/api/medicines', medicineRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/rider', riderRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
 
 // Health check route
 app.get(['/health', '/api/health'], (req, res) => {

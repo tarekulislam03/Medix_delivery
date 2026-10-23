@@ -1,33 +1,29 @@
 import React from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useT } from '../lib/i18n';
 
 export default function QtyStepper({ quantity, onIncrement, onDecrement }) {
+  const t = useT();
+
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="inline-flex items-center bg-brand-light border border-brand-green/30 rounded-pill shadow-sm overflow-hidden"
-    >
+    <div className="inline-flex items-center bg-gray-100/90 rounded-full p-0.5 border border-black/[0.04] select-none">
       <motion.button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
           onDecrement();
         }}
-        whileTap={{ scale: 0.97 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        aria-label="Decrease quantity"
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-brand-dark hover:bg-brand-green/10 touch-manipulation"
+        whileTap={{ scale: 0.88 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 400 }}
+        aria-label={t('Decrease quantity')}
+        className="w-7 h-7 rounded-full bg-white hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)] cursor-pointer touch-manipulation transition-colors"
       >
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
       </motion.button>
 
-      <span className="px-2 min-w-[20px] text-center text-xs font-bold text-brand-dark select-none">
-        {quantity}
+      <span className="px-2 min-w-[26px] text-center text-xs font-bold text-gray-950 font-mono tabular-nums">
+        {t.num(quantity)}
       </span>
 
       <motion.button
@@ -36,13 +32,13 @@ export default function QtyStepper({ quantity, onIncrement, onDecrement }) {
           e.stopPropagation();
           onIncrement();
         }}
-        whileTap={{ scale: 0.97 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        aria-label="Increase quantity"
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-brand-dark hover:bg-brand-green/10 touch-manipulation"
+        whileTap={{ scale: 0.88 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 400 }}
+        aria-label={t('Increase quantity')}
+        className="w-7 h-7 rounded-full bg-white hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)] cursor-pointer touch-manipulation transition-colors"
       >
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
       </motion.button>
-    </motion.div>
+    </div>
   );
 }

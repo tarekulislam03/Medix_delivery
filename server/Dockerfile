@@ -11,7 +11,7 @@ COPY package*.json ./
 
 # Production dependency stage
 FROM base AS dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Final runtime image
 FROM base AS runner

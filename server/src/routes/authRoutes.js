@@ -1,16 +1,15 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 const router = express.Router();
 
-// In-memory OTP storage for fast verification
-const otpCache = new Map();
-
 /**
- * POST /api/auth/send-otp
+ * POST /api/auth/login
  * Body: { phone }
+ * Logs in customer using ONLY Mobile Number (no OTP, no password, no email)
  */
-router.post('/send-otp', async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { phone } = req.body;
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
@@ -18,90 +17,264 @@ router.post('/send-otp', async (req, res) => {
     if (cleanPhone.length !== 10) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid 10-digit mobile number',
+        message: 'Please provide a valid 10-digit mobile number.',
       });
     }
 
-    // Generate 4-digit OTP (for dev / testing default to 1234, or generate 4-digit code)
-    const otp = '1234';
-    otpCache.set(cleanPhone, {
-      otp,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-    });
+    const user = await User.findOne({ phone: cleanPhone, role: 'customer' });
 
-    console.log(`[OTP] Generated OTP for ${cleanPhone}: ${otp}`);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        exists: false,
+        message: `No account found for +91 ${cleanPhone}. Please create an account.`,
+      });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || 'medix_jwt_secret_development_key_38472910482018374';
+    const token = jwt.sign(
+      {
+        id: user._id,
+        phone: user.phone,
+        role: user.role,
+      },
+      jwtSecret,
+      { expiresIn: '30d' }
+    );
+
+    console.log(`[Auth] Customer logged in: ${user.name || 'Customer'} (+91 ${cleanPhone})`);
 
     return res.status(200).json({
       success: true,
-      message: 'OTP sent successfully',
-      phone: cleanPhone,
-      otp, // Provided for instant 1-tap testing
+      message: 'Signed in successfully!',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        isVerified: true,
+        address: user.address,
+      },
     });
   } catch (err) {
-    console.error('Error sending OTP:', err);
+    console.error('Error logging in:', err);
     return res.status(500).json({
       success: false,
-      message: 'Failed to send OTP. Please try again.',
+      message: 'Failed to sign in. Please try again.',
+      error: err.message,
     });
   }
 });
 
 /**
- * POST /api/auth/verify-otp
- * Body: { phone, otp, name, address }
+ * POST /api/auth/register (or /create-account)
+ * Body: { name, phone, address }
+ * Creates an account using ONLY Name and Mobile Number (no OTP, no password, no email)
  */
-router.post('/verify-otp', async (req, res) => {
+router.post(['/register', '/create-account'], async (req, res) => {
   try {
-    const { phone, otp, name, address } = req.body;
+    const { name, phone, address } = req.body;
     const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
-    const cleanOtp = String(otp || '').trim();
+    const cleanName = String(name || '').trim();
 
     if (cleanPhone.length !== 10) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid phone number',
+        message: 'Please provide a valid 10-digit mobile number.',
       });
     }
 
-    const cached = otpCache.get(cleanPhone);
-    const isValid = cleanOtp === '1234' || (cached && cached.otp === cleanOtp && cached.expiresAt > Date.now());
-
-    if (!isValid) {
+    if (!cleanName) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP. Please use 1234.',
+        message: 'Please enter your full name.',
       });
     }
 
-    // OTP is valid - clear from cache
-    otpCache.delete(cleanPhone);
+    let user = await User.findOne({ phone: cleanPhone, role: 'customer' });
+    let isNewUser = false;
 
-    // Save or update user in MongoDB
-    const updateData = {
-      phone: cleanPhone,
-      isVerified: true,
-      role: 'customer',
-    };
-    if (name) updateData.name = name.trim();
-    if (address) {
-      updateData.address = {
-        fullName: address.fullName || name || '',
-        villagePo: address.villagePo || '',
-        pinCode: address.pinCode || '',
-        landmark: address.landmark || '',
-        fullAddress: address.fullAddress || '',
-      };
+    if (!user) {
+      isNewUser = true;
+      user = new User({
+        name: cleanName,
+        phone: cleanPhone,
+        role: 'customer',
+        isVerified: true,
+      });
+
+      if (address) {
+        user.address = {
+          fullName: address.fullName || cleanName,
+          villagePo: address.villagePo || '',
+          pinCode: address.pinCode || '',
+          landmark: address.landmark || '',
+          fullAddress: address.fullAddress || '',
+        };
+      }
+
+      await user.save();
+      console.log(`[Auth] Registered new customer: ${cleanName} (+91 ${cleanPhone})`);
+    } else {
+      user.name = cleanName;
+      user.isVerified = true;
+      if (address) {
+        user.address = {
+          fullName: address.fullName || user.name,
+          villagePo: address.villagePo || user.address?.villagePo || '',
+          pinCode: address.pinCode || user.address?.pinCode || '',
+          landmark: address.landmark || user.address?.landmark || '',
+          fullAddress: address.fullAddress || user.address?.fullAddress || '',
+        };
+      }
+      await user.save();
+      console.log(`[Auth] Updated and signed in customer: ${cleanName} (+91 ${cleanPhone})`);
     }
 
-    const user = await User.findOneAndUpdate(
-      { phone: cleanPhone },
-      { $set: updateData },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+    const jwtSecret = process.env.JWT_SECRET || 'medix_jwt_secret_development_key_38472910482018374';
+    const token = jwt.sign(
+      {
+        id: user._id,
+        phone: user.phone,
+        role: user.role,
+      },
+      jwtSecret,
+      { expiresIn: '30d' }
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Phone number verified successfully',
+      message: isNewUser ? 'Account created successfully!' : 'Signed in successfully!',
+      isNewUser,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        isVerified: true,
+        address: user.address,
+      },
+    });
+  } catch (err) {
+    console.error('Error creating account:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create account. Please try again.',
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * Fallback route for backwards compatibility: POST /api/auth/verify-otp
+ * Logs in or registers customer directly without requiring an actual OTP code
+ */
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { phone, name, address } = req.body;
+    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+
+    if (cleanPhone.length !== 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid mobile number.',
+      });
+    }
+
+    let user = await User.findOne({ phone: cleanPhone, role: 'customer' });
+    const isNewUser = !user;
+
+    if (!user) {
+      user = new User({
+        phone: cleanPhone,
+        name: name ? name.trim() : 'Customer',
+        role: 'customer',
+        isVerified: true,
+      });
+
+      if (address) {
+        user.address = {
+          fullName: address.fullName || user.name,
+          villagePo: address.villagePo || '',
+          pinCode: address.pinCode || '',
+          landmark: address.landmark || '',
+          fullAddress: address.fullAddress || '',
+        };
+      }
+      await user.save();
+    } else {
+      user.isVerified = true;
+      if (name && name.trim()) user.name = name.trim();
+      await user.save();
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || 'medix_jwt_secret_development_key_38472910482018374';
+    const token = jwt.sign(
+      {
+        id: user._id,
+        phone: user.phone,
+        role: user.role,
+      },
+      jwtSecret,
+      { expiresIn: '30d' }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: isNewUser ? 'Account created successfully!' : 'Signed in successfully!',
+      isNewUser,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        isVerified: true,
+        address: user.address,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Authentication error',
+    });
+  }
+});
+
+/**
+ * Legacy stub for send-otp: immediately returns success without sending SMS
+ */
+router.post('/send-otp', (req, res) => {
+  const { phone } = req.body;
+  const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+  return res.status(200).json({
+    success: true,
+    message: 'OTP verification is not required.',
+    phone: cleanPhone,
+  });
+});
+
+/**
+ * GET /api/auth/me
+ * Returns current authenticated user profile
+ */
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'Authorization required.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const jwtSecret = process.env.JWT_SECRET || 'medix_jwt_secret_development_key_38472910482018374';
+    const decoded = jwt.verify(token, jwtSecret);
+
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    return res.status(200).json({
+      success: true,
       user: {
         id: user._id,
         name: user.name,
@@ -111,11 +284,7 @@ router.post('/verify-otp', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Error verifying OTP:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to verify OTP. Please try again.',
-    });
+    return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
   }
 });
 
@@ -125,7 +294,7 @@ router.post('/verify-otp', async (req, res) => {
 router.get('/user/:phone', async (req, res) => {
   try {
     const cleanPhone = String(req.params.phone || '').replace(/\D/g, '').slice(-10);
-    const user = await User.findOne({ phone: cleanPhone });
+    const user = await User.findOne({ phone: cleanPhone, role: 'customer' });
 
     if (!user) {
       return res.status(404).json({

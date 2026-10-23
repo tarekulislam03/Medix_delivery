@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from './api';
-import { mockMedicines } from './mockMedicines';
 
 /**
  * Custom hook to search and fetch medicines with debouncing, fast caching,
@@ -44,17 +43,17 @@ export function useMedicines({ query = '', category = 'All', popular = false, li
             name: m.name,
             price: Number(m.price) || 50,
             category: m.category || 'General Healthcare',
-            strength: m.strength || m.category || '',
+            strength: m.strength && m.strength !== m.category ? m.strength : '',
             popular: Boolean(m.popular),
             requiresRx: Boolean(m.requiresRx),
           }));
         }
 
-        console.warn('API returned non-array data, using fallback medicines:', data);
-        return getFallbackMedicines(debouncedQuery, category);
+        console.warn('API returned non-array data:', data);
+        return [];
       } catch (err) {
-        console.error('Failed to fetch medicines from API, using fallback:', err.message);
-        return getFallbackMedicines(debouncedQuery, category);
+        console.error('Failed to fetch medicines from API:', err.message);
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -66,27 +65,6 @@ export function useMedicines({ query = '', category = 'All', popular = false, li
     medicines: Array.isArray(queryInfo.data) ? queryInfo.data : [],
     isSearching: query.trim() !== debouncedQuery,
   };
-}
-
-/**
- * Offline / error fallback filter
- */
-function getFallbackMedicines(query = '', category = 'All') {
-  let list = mockMedicines;
-  if (category && category !== 'All') {
-    list = list.filter((m) => m.category === category);
-  }
-  if (query) {
-    const q = query.toLowerCase();
-    list = list.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        (m.category && m.category.toLowerCase().includes(q))
-    );
-  } else {
-    list = list.filter((m) => m.popular);
-  }
-  return list;
 }
 
 /**

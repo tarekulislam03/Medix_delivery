@@ -1,42 +1,41 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
 
 import SearchBar from '../components/SearchBar';
 import FullScreenSearch from '../components/FullScreenSearch';
 import LocationSheet from '../components/LocationSheet';
-import PrescriptionCard from '../components/PrescriptionCard';
 import MedicineCard from '../components/MedicineCard';
 import SkeletonCard from '../components/SkeletonCard';
 import CartBar from '../components/CartBar';
 
 import { useCartStore } from '../store/cartStore';
-import { useMedicines, useMedicineCategories } from '../lib/useMedicines';
+import { useMedicines } from '../lib/useMedicines';
+import { useT } from '../lib/i18n';
 
-const DEFAULT_CATEGORIES = [
-  'All',
-  'Tablets',
-  'Syrups & Liquids',
-  'Baby Care',
-  'Eye & Ear Drops',
-  'Creams & Ointments',
-  'Capsules',
-  'Personal Care',
-  'Powders & Supplements',
-  'Inhalers & Sprays',
+const HEALTH_SHORTCUTS = [
+  { id: 'fever', label: 'Fever & Headache', query: 'dolo' },
+  { id: 'cough', label: 'Cough & Cold', query: 'cough' },
+  { id: 'acidity', label: 'Acidity & Gas', query: 'pan' },
+  { id: 'pain', label: 'Pain & Sprain', query: 'pain' },
+  { id: 'vitamins', label: 'Vitamins & Energy', query: 'zincovit' },
 ];
 
 export default function Search() {
+  const t = useT();
+  const navigate = useNavigate();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [activeSymptom, setActiveSymptom] = useState(null);
 
-  // Cart store selectors and actions
+  // Cart Store selectors
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const increment = useCartStore((state) => state.increment);
   const decrement = useCartStore((state) => state.decrement);
 
-  // Map of cart quantities by item ID
+  // Map cart quantities
   const quantityMap = useMemo(() => {
     const map = {};
     for (const item of cartItems) {
@@ -45,144 +44,151 @@ export default function Search() {
     return map;
   }, [cartItems]);
 
-  // Fetch dynamic categories from backend
-  const { data: serverCategories = [] } = useMedicineCategories();
-  const categories = useMemo(() => {
-    if (serverCategories.length > 0) {
-      return ['All', ...serverCategories.map((c) => c.name)];
-    }
-    return DEFAULT_CATEGORIES;
-  }, [serverCategories]);
+  // Current active query based on selected symptom shortcut
+  const activeSymptomQuery = useMemo(() => {
+    if (!activeSymptom) return '';
+    const match = HEALTH_SHORTCUTS.find((s) => s.id === activeSymptom);
+    return match ? match.query : '';
+  }, [activeSymptom]);
 
-  // Dynamic medicines from backend via cached TanStack Query
+  // Medicines list
   const { medicines: displayedMedicines, isLoading } = useMedicines({
-    category: selectedCategory,
-    popular: selectedCategory === 'All',
-    limit: selectedCategory === 'All' ? 20 : 50,
+    query: activeSymptomQuery,
+    popular: !activeSymptom,
+    limit: !activeSymptom ? 24 : 50,
   });
 
-  const handleSelectCategory = (category) => {
-    setSelectedCategory((prev) => (prev === category ? 'All' : category));
+  const handleSelectSymptom = (shortcut) => {
+    setActiveSymptom((prev) => (prev === shortcut.id ? null : shortcut.id));
   };
 
+  const clearAllFilters = () => {
+    setActiveSymptom(null);
+  };
+
+  const handleAddToCart = (medicine) => {
+    addItem(medicine);
+  };
+
+  const currentSymptomLabel = useMemo(() => {
+    const match = HEALTH_SHORTCUTS.find((s) => s.id === activeSymptom);
+    return match ? match.label : '';
+  }, [activeSymptom]);
+
   return (
-    <div className="min-h-screen bg-white text-ink pb-28">
+    <div className="min-h-screen bg-[#fafafa] text-gray-900 pb-32 antialiased">
       <div className="max-w-md mx-auto relative">
-        {/* 1. Sticky Header: SearchBar (Trigger for FullScreenSearch) */}
-        <div className="sticky top-0 z-30 bg-surface/95 backdrop-blur-md">
+        {/* 1. Translucent Frosted Glass Header */}
+        <div className="sticky top-0 z-30">
           <SearchBar
             onOpenSearch={() => setIsSearchOpen(true)}
-            onOpenLocation={() => setIsLocationOpen(true)}
+            onOpenLocation={() => navigate('/address?redirect=/search')}
+            onOpenSignIn={() => navigate('/login?redirect=/search')}
           />
         </div>
 
+        {/* 2. Main Body Content */}
         <div className="p-4 space-y-4">
-          {/* Promotional Advertisement Banner */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-xl py-2.5 px-3.5 text-white shadow-sm border border-emerald-500/40 text-center">
-            {/* Subtle Left-to-Right Shimmer Light Sweep */}
-            <motion.div
-              initial={{ x: '-150%' }}
-              animate={{ x: '300%' }}
-              transition={{
-                repeat: Infinity,
-                repeatType: 'loop',
-                duration: 2.2,
-                ease: 'easeInOut',
-                repeatDelay: 1.2,
-              }}
-              className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-25deg] pointer-events-none z-10"
-            />
-
-            <div className="relative z-0 flex flex-col items-center justify-center text-center">
-              <h3 className="text-sm sm:text-base font-black text-white leading-tight font-display tracking-wider uppercase">
-                17% FLAT DISCOUNT!
-              </h3>
-
-              <p className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-0.5 leading-snug">
-                On all medicines · Get 70% off delivery on orders above{' '}
-                <strong className="font-bold text-white tabular-nums">₹1,500</strong>
-              </p>
-            </div>
-          </div>
-
-          {/* 2. Upload prescription card */}
-          <PrescriptionCard />
-
-          {/* 3. Category Filter Chips */}
+          {/* Quick Relief by Health Symptom (Apple Capsule Grid) */}
           <div>
-            <div className="flex items-center justify-between mb-2 px-0.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                Categories
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {t('Quick Relief by Symptom')}
               </span>
-              {selectedCategory !== 'All' && (
+              {activeSymptom && (
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory('All')}
-                  className="text-[11px] text-brand-green font-medium hover:underline"
+                  onClick={clearAllFilters}
+                  className="text-xs text-emerald-600 font-semibold hover:underline active:opacity-70 transition-opacity"
                 >
-                  Clear filter
+                  {t('Show all')}
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth overscroll-x-contain touch-pan-x overflow-y-hidden py-0.5 -mx-4 px-4">
-              {categories.map((cat) => {
-                const isSelected = selectedCategory === cat;
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth overscroll-x-contain touch-pan-x py-1 -mx-4 px-4">
+              {HEALTH_SHORTCUTS.map((shortcut) => {
+                const isActive = activeSymptom === shortcut.id;
                 return (
-                  <motion.button
-                    key={cat}
+                  <button
+                    key={shortcut.id}
                     type="button"
-                    onClick={() => handleSelectCategory(cat)}
-                    whileTap={{ scale: 0.96 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className={`flex-shrink-0 h-8 px-3 rounded-full text-xs font-medium whitespace-nowrap transition-colors touch-pan-x flex items-center justify-center border ${
-                      isSelected
-                        ? 'bg-brand-green text-white border-brand-green shadow-xs'
-                        : 'bg-gray-50 text-gray-600 border-gray-200/80 hover:bg-gray-100 hover:text-gray-900 hover:border-gray-300'
+                    onClick={() => handleSelectSymptom(shortcut)}
+                    className={`shrink-0 h-10 px-4 rounded-2xl text-[13.5px] sm:text-sm font-semibold tracking-tight transition-all duration-150 touch-manipulation cursor-pointer flex items-center justify-center active:scale-95 select-none ${
+                      isActive
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white text-gray-800 border border-black/[0.08] hover:bg-gray-50'
                     }`}
                   >
-                    {cat}
-                  </motion.button>
+                    <span>{t(shortcut.label)}</span>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 4. Medicines Grid */}
+          {/* Medicines Feed */}
           <div>
-            <div className="flex items-center justify-between mb-3 px-0.5">
-              <h2 className="text-sm font-bold text-ink">
-                {selectedCategory !== 'All' ? `${selectedCategory} (${displayedMedicines.length})` : 'Trending'}
-              </h2>
-              <span className="text-[11px] text-ink-lighter">
-                {selectedCategory !== 'All' ? 'Filtered by category' : '6,500+ items available'}
-              </span>
+            <div className="flex items-baseline justify-between mb-3 px-1">
+              <div>
+                <h2 className="text-base font-bold text-gray-950 tracking-tight font-display">
+                  {activeSymptom ? t(currentSymptomLabel) : t('Popular & Essential Medicines')}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {activeSymptom
+                    ? t('{n} verified products available', { n: displayedMedicines.length })
+                    : t('In stock nearby for 20-min delivery')}
+                </p>
+              </div>
+
+              {activeSymptom && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-xs text-emerald-600 font-semibold hover:underline"
+                >
+                  {t('Clear filter')}
+                </button>
+              )}
             </div>
 
-            {/* Loading state: 5 skeleton cards */}
+            {/* Loading state: Skeleton cards */}
             {isLoading ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {[1, 2, 3, 4, 5].map((idx) => (
                   <SkeletonCard key={idx} />
                 ))}
               </div>
             ) : displayedMedicines.length > 0 ? (
               /* Results List */
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {displayedMedicines.map((medicine) => (
                   <MedicineCard
                     key={medicine.id}
                     medicine={medicine}
                     quantity={quantityMap[medicine.id] || 0}
-                    onAdd={addItem}
+                    onAdd={handleAddToCart}
                     onIncrement={increment}
                     onDecrement={decrement}
                   />
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-xs text-gray-400">
-                No medicines found in this category.
+              /* Actionable Apple Recovery Empty State */
+              <div className="py-12 px-4 text-center bg-white rounded-2xl border border-black/[0.04] space-y-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  {t('No medicines found in this selection')}
+                </p>
+                <p className="text-xs text-gray-400 max-w-[240px] mx-auto">
+                  {t('Try searching by medicine name or browse our popular essentials.')}
+                </p>
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="inline-flex min-h-[38px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all text-white text-xs font-semibold rounded-full shadow-xs cursor-pointer touch-manipulation"
+                >
+                  {t('Browse All Medicines')}
+                </button>
               </div>
             )}
           </div>
@@ -191,7 +197,7 @@ export default function Search() {
         {/* 5. Floating Cart Bar */}
         <CartBar />
 
-        {/* 6. Dedicated Full-Screen Search View */}
+        {/* 6. Full-Screen Search Modal */}
         <FullScreenSearch
           isOpen={isSearchOpen}
           onClose={() => setIsSearchOpen(false)}
