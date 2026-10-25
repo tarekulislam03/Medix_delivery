@@ -1,36 +1,82 @@
-Build the Orders page (/orders) in apps/customer/src/pages/Orders.jsx. Mobile-first, max-w-md, existing Tailwind tokens (brand green, ink, surface, shadow-card, rounded-card), Inter font. Use mock data in src/lib/mockOrders.js for now, no backend calls. The bottom navbar is fixed, so use pb-24 plus the safe-area inset.
+Design the Orders page and Account page for the Medix medicine delivery app
+(mobile-first, React). Use the existing Medix design tokens: deep green #003820,
+warm off-white #F7F4EC, lime accent #C6F26B (highlights only), text #0E1A14,
+muted #5E6B63, alert #D64538. Poppins 700/800 for headings and prices (tight
+tracking), DM Sans for body. Cards 16px radius, buttons and chips fully rounded,
+soft shadows only on floating elements, no borders on every card. One icon set
+(Phosphor Bold), consistent weight. Headings end with the brand full stop,
+e.g. "your orders." and "account.". Keep existing logic and API calls unchanged.
 
-Customer-facing statuses (map the backend states to these):
-- SEARCHING (finding a pharmacy; backend PLACED/OFFERED)
-- CONFIRMED (pharmacy accepted)
-- PACKED
-- OUT_FOR_DELIVERY (picked up by rider)
-- DELIVERED
-- CANCELLED
-Define them in src/lib/orderStatus.js with label, color, and step index. Colors: amber (searching), blue (confirmed, packed, out for delivery), green (delivered), red (cancelled).
+=== ORDERS PAGE ===
 
-Layout, top to bottom:
-1. Header "Your orders" with two tabs, "Active" and "Past", using a sliding underline (framer-motion layoutId, transform only).
-2. Active tab: for each active order, a large white card with:
-   - Order ID (e.g. #MD1042), placed time, and a status badge.
-   - A vertical or horizontal status stepper (Placed, Confirmed, Packed, Out for delivery, Delivered) with the current step highlighted in brand green, completed steps checked, and a pulsing dot on the current step.
-   - A live ETA line ("Arriving in about 25 min") shown only when OUT_FOR_DELIVERY.
-   - Pharmacy name (shown from CONFIRMED onward), rider name and a "Call rider" tel: button (shown only when OUT_FOR_DELIVERY).
-   - Collapsible item list (name x qty) and the bill summary (items, delivery, platform fee, total, payment method).
-   - A "Cancel order" text button shown only in SEARCHING and CONFIRMED, opening a confirm bottom sheet with reason chips.
-   - A SEARCHING state with a subtle animated shimmer and the text "Finding a nearby pharmacy..." plus a note that it takes about 2 minutes.
-3. Past tab: compact cards with date, item summary ("Paracetamol 500mg + 2 more"), total, status badge, and a "Reorder" button that adds all items to the zustand cart and navigates to /cart. Tapping a card opens an order details bottom sheet with full items, bill, address, payment method, and a "Need help?" button.
-4. Group past orders by month with sticky month labels.
-5. Empty states: Active empty ("No active orders" with a "Search medicines" button to /search), Past empty ("No orders yet").
-6. Loading state: 3 skeleton cards (simulate 400ms).
-7. Pull-to-refresh is not needed; add a small refresh icon button that re-fetches and spins while loading. Structure the data hook (src/lib/useOrders.js) with TanStack Query and refetchInterval of 10s while any order is active, so wiring the real API later is a one-line change.
+Header: "your orders." with two pill tabs: Active | Past. Default to Active if
+one exists, otherwise Past.
 
-Rules:
-- Animate only transform and opacity, 150-250ms ease-out. Use AnimatePresence with layout for tab content and the collapsible sections. whileTap={{ scale: 0.97 }} on buttons and cards.
-- Minimum 44px tap targets, touch-manipulation on interactive elements.
-- Prices via Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }) and tabular-nums on amounts.
-- Format times with relative text for today ("Today, 4:32 PM") and a short date otherwise.
-- Small reusable components in src/components: OrderCard, StatusStepper, StatusBadge, OrderDetailsSheet, BottomSheet (reuse the existing one), SkeletonCard (reuse).
-- After placing an order from the Cart page, the new order must appear first in Active with the SEARCHING status (add it to the mock store).
+ACTIVE ORDER (hero card, deep green background, white text, lime accents)
+- Big ETA: "Arriving in 14 min" (Poppins 800, 28px) with order ID and item count.
+- Vertical timeline with 5 steps: Order placed -> Pharmacy confirmed -> Packed ->
+  Out for delivery -> Delivered.
+  - Done steps: filled lime dot + solid line, with timestamp.
+  - Current step: larger pulsing lime dot, bold label, one-line status
+    ("Rahul is on the way").
+  - Upcoming steps: hollow muted dot, dashed line.
+- Delivery partner row: name, rating, a round Call button, and a 4-digit
+  delivery OTP shown in a lime pill.
+- If a prescription is needed: extra state "Prescription under review" with an
+  Rx badge, before Pharmacy confirmed.
+- Collapsible "View items & bill" section below the timeline.
+- Secondary actions: "Need help?" and "Cancel order" (only before Packed, as a
+  quiet text button with a confirm dialog).
 
-Do not build real tracking maps, auth or API integration. Confirm the page renders with no console errors and the tabs switch smoothly.
+PAST ORDERS (list)
+- Filter chips: All, Delivered, Cancelled.
+- Group by month with small uppercase labels.
+- Each card: pharmacy name, date and time, first 2 medicine names + "+3 more",
+  total paid, status tag (Delivered = green, Cancelled = red, small and quiet).
+- Primary action: "Reorder" button (deep green, full pill) which adds all items
+  to the cart and shows a toast with a "View cart" action.
+- Secondary: "View details" opens a bottom sheet with the full timeline
+  (compact), itemised bill, payment method, and "Download invoice".
+- Show small pack thumbnails (up to 3, overlapping circles) on each card.
+
+Empty states: a friendly illustration-free layout with big text:
+"nothing here yet." + "Order your first medicine in 2 taps." + CTA to Search.
+Loading: skeleton cards, not spinners.
+
+=== ACCOUNT PAGE ===
+
+Top: green header block with a large initial avatar (lime circle, deep green
+letter), name, phone number, and a small "Edit" pill. No stock stats row.
+
+Sections (grouped list cards, not one long flat list; label each group in small
+uppercase):
+1. MY STUFF: Saved addresses (with a Home/Work tag and default marker),
+   Prescriptions (uploaded Rx with expiry/verified state), Order history.
+2. PREFERENCES: Language (EN / বাংলা / हिन्दी), Notifications toggles
+   (order updates, offers, refill reminders), Default payment (COD for now).
+3. HELP: Order on call, WhatsApp support, FAQs, Report a problem.
+4. LEGAL: Terms, Privacy, Licence info (pharmacy drug licence number is
+   visible for trust).
+5. Footer actions: Log out (quiet text button), Delete account (small, red,
+   confirm dialog with typed confirmation). App version at the bottom.
+
+Row style: icon left (no tinted square backgrounds), label, optional muted value
+on the right, chevron. 56px min row height. Dividers inset, not full width.
+
+Add one lime highlight card near the top: "Refer a friend, get ₹50 off" with a
+copy-link button. It must be dismissible.
+
+=== SHARED RULES ===
+- Bottom nav matches the rest of the app: deep green active state with a small
+  lime dot, Orders tab shows a dot (not a number) when an order is active.
+- Min 14px text, 4.5:1 contrast, 44px tap targets, support Bengali text without
+  layout breaks.
+- Motion: timeline dot pulse, bottom sheet slide-up, 150ms press scale. Nothing
+  flashy.
+- Microcopy: friendly and direct ("Your order is packed. Rider's on the way.").
+
+OUTPUT
+Give me the production-ready React components for OrdersPage (with ActiveOrderCard,
+Timeline, PastOrderCard, OrderDetailsSheet) and AccountPage (with SettingsGroup,
+SettingsRow), plus any new CSS variables. Use realistic mock data in one file so I
+can preview it before wiring the API.

@@ -45,7 +45,11 @@ export const BN = {
   'item': 'টি আইটেম',
   'items': 'টি আইটেম',
 
-  // Prescription card
+  // Prescription card & Direct Order
+  'Order in Call': 'কলে অর্ডার করুন',
+  'Whatsapp Order': 'হোয়াটসঅ্যাপে অর্ডার',
+  'Talk to pharmacist': 'ফার্মাসিস্টের সাথে কথা বলুন',
+  'Chat to order': 'চ্যাট করে অর্ডার করুন',
   'Upload presciption here': 'এখানে প্রেসক্রিপশন আপলোড করুন',
   'Upload prescription here': 'এখানে প্রেসক্রিপশন আপলোড করুন',
   "We'll deliver the medicines..": 'আমরা ওষুধ পৌঁছে দেব..',

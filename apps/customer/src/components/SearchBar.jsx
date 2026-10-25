@@ -1,179 +1,197 @@
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Search as SearchIcon, MapPin, ChevronDown, User } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { Search as SearchIcon, MapPin, ChevronDown, User, Zap } from 'lucide-react';
 import { useLocationStore } from '../store/locationStore';
 import { useUserStore } from '../store/userStore';
-import LanguageSwitcher from './LanguageSwitcher';
-import { useT, useLangStore } from '../lib/i18n';
+import { useOrders } from '../lib/useOrders';
+import { ACTIVE_STATUS_KEYS } from '../lib/orderStatus';
+import { useT } from '../lib/i18n';
 
-const CATEGORY_TABS = [
-  { id: 'general', label: 'General', path: '/search' },
-  { id: 'baby-care', label: 'Baby Care', path: '/baby-care' },
-];
+/**
+ * Phosphor Icons — Bell (Bold weight, 20px)
+ */
+function PhosphorBellBold({ className = 'w-[20px] h-[20px]' }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M225.29,165.93C216.61,151,212,129.57,212,104a84,84,0,0,0-168,0c0,25.58-4.59,47-13.27,61.93A20.08,20.08,0,0,0,30.66,186,19.77,19.77,0,0,0,48,196H84.18a44,44,0,0,0,87.64,0H208a19.77,19.77,0,0,0,17.31-10A20.08,20.08,0,0,0,225.29,165.93ZM128,212a20,20,0,0,1-19.6-16h39.2A20,20,0,0,1,128,212ZM54.66,172c9.39-18.32,13.34-42.6,13.34-68a60,60,0,0,1,120,0c0,25.38,4,49.68,13.34,68Z" />
+    </svg>
+  );
+}
 
-export default function SearchBar({ onOpenSearch, onOpenLocation, onOpenSignIn }) {
+export default function SearchBar({ onOpenSearch, onOpenLocation }) {
   const t = useT();
   const navigate = useNavigate();
-  const location = useLocation();
-  const lang = useLangStore((state) => state.lang);
+
   const address = useLocationStore((state) => state.address);
   const villagePo = useLocationStore((state) => state.villagePo);
+  const locationFullName = useLocationStore((state) => state.fullName);
+
   const phone = useUserStore((state) => state.phone);
   const name = useUserStore((state) => state.name);
 
-  const activeTab = location.pathname.startsWith('/baby-care') ? 'baby-care' : 'general';
-  const isBabyCare = activeTab === 'baby-care';
-  const displayLocation = villagePo || address || t('Select location');
+  const { orders } = useOrders();
+  const hasUnreadOrderUpdates =
+    Boolean(phone) &&
+    Array.isArray(orders) &&
+    orders.some((o) => ACTIVE_STATUS_KEYS.includes(o.status));
+
+  const isLoggedIn = Boolean(phone);
+  const userInitial = (name || locationFullName || 'M').trim().charAt(0).toUpperCase();
+  const displayLocation = villagePo || address || 'Nababpur Paschim para';
+
+  const [isScrolled, setIsScrolled] = useState(false);
+  const { scrollY } = useScroll();
+
+  // Smoothly fade and translate the location row out as the header collapses on scroll
+  const locationOpacity = useTransform(scrollY, [0, 42], [1, 0], { clamp: true });
+  const locationY = useTransform(scrollY, [0, 42], [0, -8], { clamp: true });
+
+  useEffect(() => {
+    const onScroll = () => {
+      const scrolled = (window.scrollY || document.documentElement.scrollTop || 0) > 10;
+      setIsScrolled((prev) => (prev !== scrolled ? scrolled : prev));
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="w-full bg-white/75 backdrop-blur-2xl saturate-[190%] border-b border-white/80 shadow-[0_4px_24px_-2px_rgba(0,0,0,0.06),0_1px_0_0_rgba(0,0,0,0.04)] select-none">
-      {/* Top USP Banner Strip */}
-      <div
+    <>
+      {/* 1. Sticky Top Row (height 56px, padding 16px horizontal, safe-area-inset-top respected) */}
+      <header
         style={{
-          paddingTop: 'calc(0.35rem + env(safe-area-inset-top, 0px))',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          background: isScrolled
+            ? 'rgba(0, 56, 32, 0.88)'
+            : 'radial-gradient(120% 180% at 50% 0%, #0B4A2A 0%, #003820 100%)',
+          backdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
+          WebkitBackdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
         }}
-        className={`w-full text-white px-4 py-2 text-center shadow-xs transition-colors duration-200 ${
-          isBabyCare ? 'bg-[#88304E]' : 'bg-emerald-800'
+        className={`sticky top-0 z-40 w-full text-white select-none transition-shadow duration-200 ${
+          isScrolled ? 'shadow-[0_6px_20px_rgba(0,56,32,0.22)]' : ''
         }`}
       >
-        <p className="text-[13px] sm:text-sm font-bold tracking-wide">
-          {lang === 'bn' ? (
-            <>
-              ₹১৫০০ টাকার উপরে অর্ডারে <span className="underline underline-offset-2 font-bold decoration-white/90">১৭% ছাড় পান</span>
-            </>
-          ) : (
-            <>
-              Get <span className="underline underline-offset-2 font-bold decoration-white/90">17% Off</span> on above ₹1500
-            </>
-          )}
-        </p>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 pt-2.5 pb-3 space-y-2.5">
-        {/* Apple Animated Category Switcher (Same sliding pill as bottom bar) */}
-        <div className="flex justify-center">
-          <div className="relative flex items-center p-1 bg-gray-100/90 rounded-full border border-black/[0.04] w-full max-w-[320px]">
-            {CATEGORY_TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
-              const activeTextColor =
-                tab.id === 'baby-care' ? 'text-[#88304E] font-bold' : 'text-emerald-950 font-bold';
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => navigate(tab.path)}
-                  className={`relative flex-1 h-9 rounded-full flex items-center justify-center text-xs sm:text-[13px] font-semibold transition-colors duration-150 z-10 active:scale-95 touch-manipulation cursor-pointer select-none ${
-                    isActive ? activeTextColor : 'text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  {isActive && (
-                    <motion.span
-                      layoutId="apple-top-category-pill"
-                      className="absolute inset-0 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] border border-black/[0.04] z-0"
-                      transition={{ type: 'spring', damping: 28, stiffness: 360 }}
-                    />
-                  )}
-                  <span className="relative z-10">{t(tab.label)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Top Status & Location Row */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Location button - Native Apple style */}
+        <div className="max-w-md mx-auto h-[56px] px-[16px] grid grid-cols-[1fr_auto_1fr] items-center">
+          {/* Left: 40px round button (44px tap target), lime #C6F26B bg, deep green initial in Poppins 700 or user icon */}
           <button
             type="button"
-            onClick={onOpenLocation}
-            className="flex items-center gap-1.5 min-w-0 text-left active:opacity-70 transition-opacity touch-manipulation cursor-pointer group"
-            aria-label={t('Change delivery location')}
+            onClick={() => navigate('/account')}
+            aria-label="Account"
+            className="justify-self-start p-[2px] -m-[2px] min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-[999px] cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
           >
-            <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                isBabyCare ? 'bg-[#CE6A85]/15' : 'bg-emerald-500/10'
-              }`}
-            >
-              <MapPin
-                className={`w-3.5 h-3.5 transition-colors ${
-                  isBabyCare ? 'text-[#BF5B76]' : 'text-emerald-600'
-                }`}
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                  {t('Deliver to')}
+            <span className="w-[40px] h-[40px] rounded-[999px] bg-[#C6F26B] text-[#003820] flex items-center justify-center">
+              {isLoggedIn ? (
+                <span className="font-display font-bold text-[16px] leading-none text-[#003820]">
+                  {userInitial}
                 </span>
-                <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-gray-700 transition-colors" />
-              </div>
-              <p className="text-xs font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[260px] leading-tight">
-                {displayLocation}
-              </p>
-            </div>
+              ) : (
+                <User className="w-[20px] h-[20px] stroke-[2.4] text-[#003820]" />
+              )}
+            </span>
           </button>
 
-          {/* Right Action: User Profile / Sign In */}
-          <div className="flex items-center gap-2 shrink-0">
-            <LanguageSwitcher />
-            {phone ? (
-              <button
-                type="button"
-                onClick={onOpenSignIn}
-                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all flex items-center justify-center text-gray-700 font-bold text-[11px] cursor-pointer"
-                title={name || phone}
-              >
-                {name ? name.charAt(0).toUpperCase() : <User className="w-3.5 h-3.5" />}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenSignIn}
-                className={`text-xs font-bold underline underline-offset-2 active:opacity-70 transition-opacity cursor-pointer px-1.5 py-1 ${
-                  isBabyCare
-                    ? 'text-[#BF5B76] hover:text-[#88304E]'
-                    : 'text-emerald-600 hover:text-emerald-700'
-                }`}
-              >
-                Sign In
-              </button>
-            )}
-          </div>
+          {/* Center: "medix." wordmark (always perfectly centered via 1fr auto 1fr grid) */}
+          <button
+            type="button"
+            onClick={() => navigate('/search')}
+            className="min-h-[44px] px-2 font-display font-extrabold text-[30px] leading-none tracking-[-0.03em] text-white flex items-center justify-center cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
+            aria-label="medix home"
+          >
+            <span>medix</span>
+            <span className="text-[#C6F26B]">.</span>
+          </button>
+
+          {/* Right: 40px round button (44px tap target), rgba(255,255,255,0.12) bg, Phosphor Bold 20px Bell + optional 8px lime dot */}
+          <button
+            type="button"
+            onClick={() => navigate('/orders')}
+            aria-label="Notifications"
+            className="justify-self-end p-[2px] -m-[2px] min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-[999px] cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
+          >
+            <span
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.12)' }}
+              className="w-[40px] h-[40px] rounded-[999px] text-white flex items-center justify-center relative"
+            >
+              <PhosphorBellBold className="w-[20px] h-[20px] text-white" />
+              {hasUnreadOrderUpdates && (
+                <span className="absolute top-[7px] right-[7px] w-[8px] h-[8px] rounded-[999px] bg-[#C6F26B]" />
+              )}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. Collapsible Location Row + 50%-Overlapping Search Bar */}
+      <div className="w-full pb-4 select-none relative z-30">
+        {/* Lower Green Block with 32px bottom radius */}
+        <div
+          style={{
+            background: 'linear-gradient(180deg, #033F24 0%, #003820 100%)',
+          }}
+          className="w-full text-white px-[16px] pt-1 pb-[34px] rounded-b-[32px]"
+        >
+          <motion.div
+            style={{
+              opacity: locationOpacity,
+              y: locationY,
+            }}
+            className="max-w-md mx-auto"
+          >
+            <button
+              type="button"
+              onClick={onOpenLocation}
+              className="w-full min-h-[44px] flex items-center justify-between gap-2 text-left cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.99]"
+              aria-label={t('Change delivery location')}
+            >
+              {/* Left: pin icon + "To: Nababpur Paschim para" + chevron */}
+              <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
+                <MapPin className="w-4 h-4 text-[#C6F26B] stroke-[2.4] shrink-0" />
+                <span className="text-[14px] text-white/80 font-normal shrink-0">
+                  {t('To:')}
+                </span>
+                <span className="text-[14px] font-bold text-white truncate">
+                  {displayLocation}
+                </span>
+                <ChevronDown className="w-4 h-4 text-[#C6F26B] stroke-[2.4] shrink-0" />
+              </div>
+
+              {/* Right: pill with lime 1px outline, bolt icon and "20 min" in lime, 13px, Poppins 600 */}
+              <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-[999px] border border-[#C6F26B] font-display font-semibold text-[13px] leading-none text-[#C6F26B]">
+                <Zap className="w-3.5 h-3.5 text-[#C6F26B] fill-[#C6F26B] shrink-0" />
+                <span>20 min</span>
+              </span>
+            </button>
+          </motion.div>
         </div>
 
-        {/* Apple Glassmorphic Search Bar with Adaptive Dynamic Theme */}
-        <div
-          onClick={onOpenSearch}
-          className={`relative flex items-center h-12 backdrop-blur-2xl saturate-[190%] rounded-2xl px-4 active:scale-[0.985] transition-all duration-150 cursor-pointer touch-manipulation group ${
-            isBabyCare
-              ? 'bg-[#FDF2F4]/90 hover:bg-[#FBEAEE] active:bg-[#F7DEE4] border border-[#CE6A85]/35 hover:border-[#CE6A85]/55 active:border-[#88304E]/60 shadow-[0_4px_20px_-2px_rgba(206,106,133,0.12),0_1px_2px_0_rgba(0,0,0,0.03),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]'
-              : 'bg-emerald-50/75 hover:bg-emerald-100/70 active:bg-emerald-100/90 border border-emerald-700/30 hover:border-emerald-700/45 active:border-emerald-800/60 shadow-[0_4px_20px_-2px_rgba(5,150,105,0.08),0_1px_2px_0_rgba(0,0,0,0.03),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]'
-          }`}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              onOpenSearch?.();
-            }
-          }}
-          aria-label={t('Search medicines and healthcare products')}
-        >
-          <SearchIcon
-            className={`w-5 h-5 shrink-0 mr-3 stroke-[2.25] transition-colors ${
-              isBabyCare ? 'text-[#BF5B76]' : 'text-emerald-700'
-            }`}
-          />
-          <span
-            className={`text-[14.5px] sm:text-base font-normal tracking-normal select-none flex-1 truncate transition-colors ${
-              isBabyCare ? 'text-[#6E2137]/80' : 'text-emerald-950/75'
-            }`}
+        {/* Search Bar Overlapping Header Bottom Edge by 50% (height 52px, -mt-[26px]) */}
+        <div className="max-w-md mx-auto px-[16px] -mt-[26px] relative z-10">
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            style={{
+              boxShadow: '0 8px 24px -4px rgba(0, 56, 32, 0.2)',
+            }}
+            className="w-full h-[52px] bg-white rounded-[999px] px-4 flex items-center gap-3 text-left cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.98]"
+            aria-label={t('Search medicines and healthcare products')}
           >
-            {isBabyCare ? t('Search baby diapers, food, care...') : t('Search medicine name here..')}
-          </span>
+            <SearchIcon className="w-5 h-5 text-[#003820] stroke-[2.4] shrink-0" />
+            <span className="text-[15px] font-medium text-[#5E6B63] flex-1 truncate">
+              {t('Search Dolo 650, Pan 40, fever, cough...')}
+            </span>
+          </button>
         </div>
       </div>
-    </header>
+    </>
   );
 }

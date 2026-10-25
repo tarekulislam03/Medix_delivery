@@ -63,8 +63,8 @@ export const ORDER_STATUSES = {
 };
 
 export const STEPPER_STEPS = [
-  { key: 'PLACED', label: 'Placed', index: 0 },
-  { key: 'CONFIRMED', label: 'Confirmed', index: 1 },
+  { key: 'PLACED', label: 'Order placed', index: 0 },
+  { key: 'CONFIRMED', label: 'Pharmacy confirmed', index: 1 },
   { key: 'PACKED', label: 'Packed', index: 2 },
   { key: 'OUT_FOR_DELIVERY', label: 'Out for delivery', index: 3 },
   { key: 'DELIVERED', label: 'Delivered', index: 4 },

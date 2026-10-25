@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, User, ShieldCheck, CreditCard, ChevronRight, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, ChevronRight, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomSheet from './BottomSheet';
 import { formatPrice } from '../lib/fees';
@@ -18,6 +18,7 @@ export default function ConfirmOrderSheet({
   paymentMethod,
   bill,
   itemsCount = 1,
+  totalUnits = 1,
   isSubmitting = false,
 }) {
   const t = useT();
@@ -33,23 +34,23 @@ export default function ConfirmOrderSheet({
     if (isSwiping || isSubmitting) return;
     setIsSwiping(true);
 
-    // Left-to-right swipe animation runs for 280ms, then immediately confirms
     setTimeout(() => {
       onConfirm?.();
-    }, 280);
+    }, 260);
   };
+
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('Confirm Delivery Details')}>
-      <div className="pb-3 space-y-3.5">
-        <p className="text-xs text-ink-light -mt-1 mb-3">
-          {t('Please review your delivery details before placing your order')}
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('confirm order.')}>
+      <div className="pb-2 space-y-4">
+        <p className="text-[15px] text-[#5E6B63] -mt-2">
+          {t('Review your delivery address before placing your order.')}
         </p>
 
         {/* Delivery Details Card */}
-        <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-100 space-y-2.5">
+        <div className="p-4 rounded-[16px] bg-white space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-              {t('Delivering To')}
+            <span className="text-[14px] font-bold text-[#5E6B63]">
+              {t('Delivering to')}
             </span>
             {onChangeAddress && (
               <button
@@ -58,103 +59,95 @@ export default function ConfirmOrderSheet({
                   onClose?.();
                   onChangeAddress();
                 }}
-                className="text-xs font-semibold text-brand-green hover:underline flex items-center gap-0.5 cursor-pointer"
+                className="min-h-[36px] px-3 rounded-[999px] bg-[#E3EFE8] text-[14px] font-bold text-[#003820] flex items-center gap-1 cursor-pointer active:scale-[0.96] transition-transform duration-150"
               >
                 <span>{t('Change')}</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4 stroke-[2.25]" />
               </button>
             )}
           </div>
 
-          {/* Recipient Name */}
-          <div className="flex items-center gap-2 text-ink">
-            <User className="w-4 h-4 text-brand-green shrink-0" />
-            <span className="text-xs font-bold truncate">
+          <div className="flex items-center gap-2.5 text-[#0E1A14]">
+            <User className="w-4 h-4 text-[#003820] stroke-[2.25] shrink-0" />
+            <span className="text-[15px] font-bold truncate select-text">
               {fullName || t('Customer')}
             </span>
           </div>
 
-          {/* Address */}
-          <div className="flex items-start gap-2 text-ink">
-            <MapPin className="w-4 h-4 text-brand-green shrink-0 mt-0.5" />
-            <div className="text-xs text-gray-700 leading-snug">
-              <p className="font-semibold text-ink">{villagePo || t('Your Address')}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                {landmark ? t('Near {landmark}', { landmark }) + ' · ' : ''}{pinCode ? t('PIN: {pin}', { pin: pinCode }) : ''}
+          <div className="flex items-start gap-2.5 text-[#0E1A14]">
+            <MapPin className="w-4 h-4 text-[#003820] stroke-[2.25] shrink-0 mt-1" />
+            <div className="text-[15px] text-[#0E1A14] leading-snug select-text">
+              <p className="font-bold">{villagePo || t('Your Address')}</p>
+              <p className="text-[14px] text-[#5E6B63] mt-0.5">
+                {landmark ? t('Near {landmark}', { landmark }) + ' · ' : ''}
+                {pinCode ? t('PIN: {pin}', { pin: pinCode }) : ''}
               </p>
             </div>
           </div>
 
-          {/* Delivery Contact Phone */}
-          <div className="flex items-center justify-between pt-1 border-t border-gray-200/60 text-xs">
-            <div className="flex items-center gap-2 text-gray-700 font-mono">
-              <Phone className="w-3.5 h-3.5 text-brand-green" />
+          <div className="flex items-center justify-between pt-2.5 border-t border-[#F7F4EC] text-[14px]">
+            <div className="flex items-center gap-2 text-[#0E1A14] font-bold select-text">
+              <Phone className="w-4 h-4 text-[#003820] stroke-[2.25]" />
               <span>+91 {phone || t('Required')}</span>
             </div>
-            <span className="text-[11px] font-medium text-gray-500">
-              {t('Delivery Contact')}
+            <span className="text-[14px] font-medium text-[#5E6B63]">
+              {t('Contact')}
             </span>
           </div>
         </div>
 
         {/* Order & Payment Summary Mini Card */}
-        <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-brand-green" />
-            <span className="text-xs text-ink font-medium">
-              {paymentMethod === 'cod' ? t('Cash on Delivery') : t('Online / UPI')} · {t.num(itemsCount)} {t(itemsCount === 1 ? 'item' : 'items')}
-            </span>
+        <div className="p-4 rounded-[16px] bg-white flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <CreditCard className="w-5 h-5 text-[#003820] stroke-[2.25]" />
+            <div>
+              <p className="text-[15px] text-[#0E1A14] font-bold">
+                {paymentMethod === 'cod' ? t('Cash on delivery') : t('UPI')}
+              </p>
+              <p className="text-[14px] text-[#5E6B63]">
+                {t.num(totalUnits)} {totalUnits === 1 ? t('item') : t('items')} · {t.num(itemsCount)}{' '}
+                {itemsCount === 1 ? t('medicine') : t('medicines')}
+              </p>
+            </div>
           </div>
-          <span className="text-sm font-bold text-brand-green tabular-nums">
+          <span className="font-display text-[20px] font-bold tracking-[-0.02em] text-[#003820] tabular-nums">
             {formatPrice(bill?.total || 0)}
           </span>
         </div>
 
-        {/* Big Solid Confirm Order Button with Left-to-Right Swipe Animation */}
-        <div className="pt-2">
+        {/* Confirm Order Button */}
+        <div className="pt-1">
           <button
             type="button"
             onClick={handleClick}
             disabled={isSubmitting || isSwiping}
-            className="relative w-full h-14 bg-brand-green hover:bg-emerald-700 active:scale-[0.99] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-base font-bold rounded-2xl shadow-elevated transition-all touch-manipulation cursor-pointer flex items-center justify-between px-5 select-none overflow-hidden"
+            className="relative w-full min-h-[56px] bg-[#003820] disabled:bg-[#EFEAD8] text-white text-[16px] font-display font-bold tracking-[-0.02em] rounded-[999px] transition-transform duration-150 active:scale-[0.98] touch-manipulation cursor-pointer flex items-center justify-between pl-6 pr-2.5 select-none overflow-hidden"
           >
-            {/* Left-to-Right Progress Color Fill */}
             <motion.div
               initial={{ width: '0%' }}
               animate={isSwiping ? { width: '100%' } : { width: '0%' }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute left-0 top-0 bottom-0 bg-emerald-800/90 pointer-events-none"
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute left-0 top-0 bottom-0 bg-[#002615] pointer-events-none"
             />
-
-            {/* Left-to-Right Swipe Fill Wave */}
-            {isSwiping && (
-              <motion.div
-                initial={{ x: '-100%' }}
-                animate={{ x: '100%' }}
-                transition={{ duration: 0.32, ease: 'easeInOut' }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none"
-              />
-            )}
 
             <div className="relative z-10 flex items-center gap-2.5">
               {isSubmitting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin text-[#C6F26B]" />
               ) : (
-                <Check className="w-5 h-5 stroke-[3]" />
+                <Check className="w-5 h-5 stroke-[2.8] text-[#C6F26B]" />
               )}
-              <span>{isSubmitting ? t('Placing Order...') : isSwiping ? t('Confirming...') : t('Confirm & Place Order')}</span>
+              <span>
+                {isSubmitting
+                  ? t('Placing order...')
+                  : isSwiping
+                    ? t('Confirming...')
+                    : t('Confirm & place order')}
+              </span>
             </div>
 
-            <div className="relative z-10 flex items-center gap-1.5 tabular-nums text-base">
+            <div className="relative z-10 min-h-[42px] px-4 rounded-[999px] bg-[#C6F26B] text-[#0E1A14] flex items-center gap-1.5 tabular-nums text-[15px] font-display font-bold">
               <span>{formatPrice(bill?.total || 0)}</span>
-              {!isSubmitting && (
-                <motion.div
-                  animate={isSwiping ? { x: [0, 8, 24], opacity: [1, 1, 0] } : {}}
-                  transition={{ duration: 0.28, ease: 'easeIn' }}
-                >
-                  <ArrowRight className="w-5 h-5" />
-                </motion.div>
-              )}
+              {!isSubmitting && <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
             </div>
           </button>
         </div>

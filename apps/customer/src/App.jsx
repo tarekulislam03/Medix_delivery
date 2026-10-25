@@ -4,7 +4,6 @@ import CustomerLayout from './layouts/CustomerLayout';
 
 // Eagerly import all primary tabs so they load into memory at startup
 import Search from './pages/Search';
-import BabyCare from './pages/BabyCare';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders';
 import Account from './pages/Account';
@@ -35,7 +34,6 @@ export default function App() {
         {/* Default route redirects / to /search */}
         <Route index element={<Navigate to="/search" replace />} />
         <Route path="search" element={<Search />} />
-        <Route path="baby-care" element={<BabyCare />} />
         <Route path="cart" element={<Cart />} />
         <Route path="orders" element={<Orders />} />
         <Route path="account" element={<Account />} />

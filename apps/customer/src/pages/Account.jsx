@@ -1,890 +1,1094 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User,
   MapPin,
+  Prescription,
+  ClockCounterClockwise,
+  Translate,
   Bell,
-  Shield,
-  HelpCircle,
-  ChevronRight,
-  LogOut,
-  Globe,
-  PackageCheck,
-  Phone,
-  MessageSquare,
-  Trash2,
+  Wallet,
+  PhoneCall,
+  WhatsappLogo,
+  Question,
+  WarningCircle,
+  FileText,
+  ShieldCheck,
+  Certificate,
+  CaretRight,
+  Copy,
   Check,
   X,
-  ChevronDown,
-  Lock,
-  Edit2,
-} from 'lucide-react';
+  PencilSimple,
+  SignOut,
+  Trash,
+  Plus,
+} from '@phosphor-icons/react';
 import { useUserStore } from '../store/userStore';
-import { useLocationStore } from '../store/locationStore';
-import { useLangStore, LANGUAGES, useT } from '../lib/i18n';
+import api from '../lib/api';
+import { useT } from '../lib/i18n';
+import {
+  PHARMACY_LICENCE_NO,
+  MOCK_SAVED_ADDRESSES,
+  MOCK_PRESCRIPTIONS,
+  MOCK_FAQS,
+} from '../lib/medixMockData';
 
-export default function Account() {
-  const t = useT();
-  const navigate = useNavigate();
-
-  // User store state
-  const name = useUserStore((state) => state.name);
-  const phone = useUserStore((state) => state.phone);
-  const setUser = useUserStore((state) => state.setUser);
-  const logout = useUserStore((state) => state.logout);
-
-  // Location store state
-  const locationName = useLocationStore((state) => state.fullName);
-  const address = useLocationStore((state) => state.address);
-  const fullAddress = useLocationStore((state) => state.fullAddress);
-
-  // Language store state
-  const lang = useLangStore((state) => state.lang);
-  const setLang = useLangStore((state) => state.setLang);
-
-  // Display Name resolution
-  const displayName = name || locationName || '';
-
-  // Sheets state
-  const [activeSheet, setActiveSheet] = useState(null); // 'language' | 'notifications' | 'support' | 'privacy' | 'profile' | 'logout'
-
-  // Notification Preferences (saved in localStorage)
-  const [notifPrefs, setNotifPrefs] = useState(() => {
-    try {
-      const saved = localStorage.getItem('medix_notif_prefs');
-      return saved
-        ? JSON.parse(saved)
-        : {
-            orderAlerts: true,
-            whatsappUpdates: true,
-            promosAndHealth: false,
-          };
-    } catch {
-      return { orderAlerts: true, whatsappUpdates: true, promosAndHealth: false };
-    }
-  });
-
-  const toggleNotif = (key) => {
-    setNotifPrefs((prev) => {
-      const updated = { ...prev, [key]: !prev[key] };
-      localStorage.setItem('medix_notif_prefs', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  // Profile Edit State
-  const [editName, setEditName] = useState(displayName);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // Privacy Action State
-  const [cacheCleared, setCacheCleared] = useState(false);
-
-  // FAQ Accordion State inside Support
-  const [openFaq, setOpenFaq] = useState(null);
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    if (!editName.trim()) return;
-    setUser({ name: editName.trim() });
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-      setActiveSheet(null);
-    }, 900);
-  };
-
-  const handleClearCache = () => {
-    try {
-      sessionStorage.clear();
-      localStorage.removeItem('medix_recent_searches');
-    } catch {}
-    setCacheCleared(true);
-    setTimeout(() => setCacheCleared(false), 2000);
-  };
-
-  // Close sheet with Escape key
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') setActiveSheet(null);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
+/**
+ * SettingsGroup — Grouped list card labeled in small uppercase.
+ */
+export function SettingsGroup({ title, children }) {
   return (
-    <div className="min-h-screen bg-[#F2F2F7] text-gray-900 pb-32">
-      {/* Top Header */}
-      <div
-        style={{
-          paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
-        }}
-        className="max-w-md mx-auto px-4 pt-3 pb-2"
+    <section className="space-y-2">
+      {title && (
+        <h2 className="text-[14px] font-bold uppercase tracking-wider text-[#5E6B63] px-1">
+          {title}
+        </h2>
+      )}
+      <div className="bg-white rounded-[16px] overflow-hidden">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * SettingsRow — Phosphor Bold icon on the left (NO tinted square background),
+ * label, optional muted value on the right, chevron, 56px min row height, inset divider.
+ */
+export function SettingsRow({
+  icon: Icon,
+  label,
+  value,
+  badge,
+  onClick,
+  rightElement,
+  isLast = false,
+}) {
+  const Wrapper = onClick ? 'button' : 'div';
+  return (
+    <div className="relative">
+      <Wrapper
+        type={onClick ? 'button' : undefined}
+        onClick={onClick}
+        className={`w-full min-h-[56px] px-4 py-3 flex items-center justify-between gap-3 text-left transition-colors ${
+          onClick ? 'active:bg-[#F7F4EC]/70 cursor-pointer' : ''
+        }`}
       >
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-          {t('Account')}
-        </h1>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {t('Personal settings & preferences')}
-        </p>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 space-y-6 mt-2">
-        {/* Apple ID Style Profile Card */}
-        <div className="bg-white rounded-2xl p-4 border border-black/[0.04] shadow-xs">
-          {phone ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-13 h-13 rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-xs">
-                  {displayName ? displayName.charAt(0).toUpperCase() : <User className="w-6 h-6 text-white" />}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-gray-900 leading-snug truncate">
-                    {displayName || t('Medix Customer')}
-                  </h2>
-                  <p className="text-xs text-gray-500 font-mono tracking-tight mt-0.5">
-                    +91 {phone}
-                  </p>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 border border-emerald-200/50">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Verified Customer
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEditName(displayName);
-                  setActiveSheet('profile');
-                }}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200/80 active:scale-95 transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
-              >
-                <Edit2 className="w-3 h-3 text-gray-500" />
-                <span>Edit</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-                  <User className="w-6 h-6" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-gray-900 leading-snug">
-                    {t('Sign in to Medix')}
-                  </h2>
-                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
-                    Sync orders, addresses & prescriptions
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/login?redirect=/account')}
-                className="px-4 py-2 rounded-full text-xs font-semibold text-white bg-gray-900 hover:bg-black active:scale-95 transition-all cursor-pointer shrink-0 shadow-xs"
-              >
-                {t('Sign In')}
-              </button>
-            </div>
+        <div className="flex items-center gap-3.5 min-w-0">
+          {Icon && (
+            <Icon
+              weight="bold"
+              className="w-5 h-5 text-[#003820] shrink-0"
+            />
+          )}
+          <span className="text-[15px] font-semibold text-[#0E1A14] truncate">
+            {label}
+          </span>
+          {badge && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-[999px] text-[14px] font-bold bg-[#E3EFE8] text-[#003820] shrink-0">
+              {badge}
+            </span>
           )}
         </div>
 
-        {/* Group 1: Orders & Delivery */}
-        <div>
-          <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-3 mb-1.5">
-            {t('Orders & Delivery')}
-          </div>
-          <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden">
-            {/* My Orders Row */}
-            <button
-              type="button"
-              onClick={() => navigate('/orders')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#34C759] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <PackageCheck className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('My Orders & Prescriptions')}
-                  </p>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {t('Track active deliveries & past receipts')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
-            </button>
-
-            {/* Saved Delivery Address Row */}
-            <button
-              type="button"
-              onClick={() => navigate('/address')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#007AFF] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <MapPin className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('Saved Delivery Address')}
-                  </p>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {fullAddress || address || t('Add your village, PO & PIN code')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className="text-[11px] text-gray-400">
-                  {address ? 'Edit' : 'Add'}
-                </span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-              </div>
-            </button>
-          </div>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          {value && (
+            <span className="text-[14px] font-medium text-[#5E6B63] max-w-[160px] truncate">
+              {value}
+            </span>
+          )}
+          {rightElement || (
+            <CaretRight weight="bold" className="w-4 h-4 text-[#5E6B63]" />
+          )}
         </div>
+      </Wrapper>
 
-        {/* Group 2: Preferences */}
-        <div>
-          <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-3 mb-1.5">
-            {t('Preferences')}
-          </div>
-          <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden">
-            {/* App Language Row */}
-            <button
-              type="button"
-              onClick={() => setActiveSheet('language')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#5856D6] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Globe className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('App Language')}
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    English / বাংলা
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
-                  {lang === 'bn' ? 'বাংলা' : 'English'}
-                </span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-              </div>
-            </button>
+      {/* Inset divider */}
+      {!isLast && (
+        <div className="ml-12 mr-4 border-b border-[#0E1A14]/8" />
+      )}
+    </div>
+  );
+}
 
-            {/* Notifications & Alerts Row */}
-            <button
-              type="button"
-              onClick={() => setActiveSheet('notifications')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#FF3B30] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Bell className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('Notifications & Alerts')}
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    {notifPrefs.orderAlerts ? 'Order alerts on' : 'Alerts muted'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className="text-[11px] text-emerald-600 font-medium">
-                  {notifPrefs.orderAlerts ? 'Active' : 'Off'}
-                </span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-              </div>
-            </button>
-          </div>
-        </div>
+export default function Account() {
+  const { t, lang, setLang } = useT();
+  const navigate = useNavigate();
+  const { name: storedName, phone: storedPhone, token, setUser, setAuth, logout } = useUserStore();
+  const user = storedName || storedPhone ? { name: storedName, phone: storedPhone } : null;
 
-        {/* Group 3: Help & Privacy */}
-        <div>
-          <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-3 mb-1.5">
-            {t('Support & Trust')}
-          </div>
-          <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden">
-            {/* Help & Support Row */}
-            <button
-              type="button"
-              onClick={() => setActiveSheet('support')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#FF9500] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <HelpCircle className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('Help & Customer Support')}
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    Hotline, WhatsApp & FAQs
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
-            </button>
+  // Display user (real logged-in user or realistic preview profile)
+  const [localProfile, setLocalProfile] = useState({
+    name: storedName || 'Tarekul Islam',
+    phone: storedPhone ? `+91 ${storedPhone}` : '+91 98304 21890',
+    address: 'Flat 4B, Shantiniketan Apt, Salt Lake Sector II',
+  });
 
-            {/* Privacy & Security Row */}
-            <button
-              type="button"
-              onClick={() => setActiveSheet('privacy')}
-              className="w-full p-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100/70 transition-colors cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#4F46E5] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Shield className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-gray-900">
-                    {t('Privacy & Data Security')}
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    Data storage, prescriptions & cache
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 ml-2" />
-            </button>
-          </div>
-        </div>
+  const displayName = storedName || localProfile.name;
+  const displayPhone = storedPhone ? `+91 ${storedPhone}` : localProfile.phone;
+  const initialLetter = (displayName || 'M').trim().charAt(0).toUpperCase();
 
-        {/* Group 4: Sign Out (Only when logged in) */}
-        {phone ? (
-          <div>
-            <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs overflow-hidden">
+  // Dismissible lime referral card state
+  const [referralDismissed, setReferralDismissed] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
+
+  // Language state (EN / বাংলা / हिन्दी)
+  const [uiLangCode, setUiLangCode] = useState(lang === 'bn' ? 'bn' : 'en');
+
+  // Notification toggles
+  const [notifSettings, setNotifSettings] = useState({
+    orderUpdates: true,
+    offers: false,
+    refillReminders: true,
+  });
+
+  // Saved addresses & prescriptions state
+  const [addresses, setAddresses] = useState(MOCK_SAVED_ADDRESSES);
+  const [prescriptions] = useState(MOCK_PRESCRIPTIONS);
+
+  // Active sheet/modal state:
+  // 'EDIT_PROFILE' | 'AUTH' | 'ADDRESSES' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'PAYMENT' | 'FAQS' | 'REPORT' | 'TERMS' | 'PRIVACY' | 'LICENCE' | 'DELETE_ACCOUNT' | null
+  const [activeSheet, setActiveSheet] = useState(null);
+
+  // Edit profile form
+  const [editName, setEditName] = useState(displayName);
+  const [editPhone, setEditPhone] = useState(displayPhone);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Auth form (for signing in / registering with live backend)
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    phone: '',
+    password: '',
+    address: '',
+  });
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Report problem state
+  const [reportText, setReportText] = useState('');
+  const [reportSent, setReportSent] = useState(false);
+
+  // Delete account typed confirmation state
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const handleCopyReferral = () => {
+    const referralUrl = 'https://medix.app/r/TAREK50';
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(referralUrl).catch(() => {});
+    }
+    setReferralCopied(true);
+    setTimeout(() => setReferralCopied(false), 2500);
+  };
+
+  const handleLanguageSelect = (code) => {
+    setUiLangCode(code);
+    if (code === 'bn') {
+      setLang('bn');
+    } else {
+      setLang('en');
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      if (token) {
+        const res = await api.put('/auth/profile', {
+          name: editName.trim(),
+          address: localProfile.address,
+        });
+        setAuth({ user: res.data, token });
+      } else {
+        setUser({
+          name: editName.trim() || localProfile.name,
+          phone: editPhone.trim() || localProfile.phone,
+        });
+      }
+      setLocalProfile((prev) => ({
+        ...prev,
+        name: editName.trim() || prev.name,
+        phone: editPhone.trim() || prev.phone,
+      }));
+      setActiveSheet(null);
+    } catch {
+      setUser({
+        name: editName.trim() || localProfile.name,
+        phone: editPhone.trim() || localProfile.phone,
+      });
+      setLocalProfile((prev) => ({
+        ...prev,
+        name: editName.trim() || prev.name,
+        phone: editPhone.trim() || prev.phone,
+      }));
+      setActiveSheet(null);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
+      const payload =
+        authMode === 'login'
+          ? { phone: authForm.phone, password: authForm.password }
+          : { ...authForm, role: 'CUSTOMER' };
+      const res = await api.post(endpoint, payload);
+      setAuth({ user: res.data.user, token: res.data.token });
+      setActiveSheet(null);
+    } catch (err) {
+      setAuthError(
+        err.response?.data?.message ||
+          t('Could not sign in. Please check your credentials.')
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
+  const verifiedRxCount = prescriptions.filter((rx) => rx.verified).length;
+  const activeNotifCount = Object.values(notifSettings).filter(Boolean).length;
+
+  return (
+    <div className="min-h-screen bg-[#F7F4EC] text-[#0E1A14] pb-8">
+      {/* Deep Green (#003820) Header Block */}
+      <header className="bg-[#003820] text-white px-4 pt-6 pb-6 rounded-b-[24px]">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-5">
+            <h1 className="font-display font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em] text-white">
+              {t('account.')}
+            </h1>
+
+            {!user && (
               <button
                 type="button"
-                onClick={() => setActiveSheet('logout')}
-                className="w-full py-3.5 px-4 flex items-center justify-center gap-2 text-red-600 font-semibold text-[13px] hover:bg-red-50/50 active:bg-red-100/60 transition-colors cursor-pointer"
+                onClick={() => setActiveSheet('AUTH')}
+                className="min-h-[38px] px-3.5 rounded-[999px] bg-white/12 text-[#C6F26B] text-[14px] font-bold active:scale-95 transition-transform"
               >
-                <LogOut className="w-4 h-4 text-red-600" />
-                <span>{t('Sign out')}</span>
+                {t('Sign in')}
+              </button>
+            )}
+          </div>
+
+          {/* Large Initial Avatar (lime circle, deep green letter), Name, Phone, and small "Edit" pill */}
+          <div className="flex items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-16 h-16 rounded-full bg-[#C6F26B] text-[#003820] font-display font-extrabold text-[26px] flex items-center justify-center shrink-0">
+                {initialLetter}
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display font-bold text-[20px] text-white leading-tight truncate">
+                  {displayName}
+                </h2>
+                <p className="text-[15px] text-white/80 tabular-nums mt-0.5 truncate">
+                  {displayPhone}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditName(displayName);
+                setEditPhone(displayPhone);
+                setActiveSheet('EDIT_PROFILE');
+              }}
+              className="min-h-[44px] px-4 rounded-[999px] bg-white/12 text-white text-[14px] font-bold inline-flex items-center gap-1.5 shrink-0 active:scale-95 transition-transform"
+            >
+              <PencilSimple weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+              <span>{t('Edit')}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-lg mx-auto px-4 pt-4 space-y-5">
+        {/* One Lime Highlight Card: "Refer a friend, get ₹50 off" near the top with copy-link button, dismissible */}
+        {!referralDismissed && (
+          <section className="bg-[#C6F26B] text-[#003820] rounded-[16px] p-4 relative">
+            <button
+              type="button"
+              onClick={() => setReferralDismissed(true)}
+              aria-label="Dismiss referral card"
+              className="absolute top-2.5 right-2.5 w-11 h-11 rounded-full flex items-center justify-center text-[#003820]/70 hover:text-[#003820]"
+            >
+              <X weight="bold" className="w-4 h-4" />
+            </button>
+
+            <div className="pr-8">
+              <p className="font-display font-extrabold text-[18px] leading-snug text-[#003820]">
+                {t('Refer a friend, get ₹50 off')}
+              </p>
+              <p className="text-[14px] text-[#003820]/85 mt-0.5 mb-3">
+                {t('Your friend gets ₹50 off their first 20-minute medicine delivery too.')}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2.5 bg-white/75 rounded-[999px] pl-4 pr-1.5 py-1.5">
+              <span className="text-[14px] font-bold text-[#003820] truncate tabular-nums">
+                medix.app/r/TAREK50
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyReferral}
+                className="min-h-[40px] px-4 rounded-[999px] bg-[#003820] text-white text-[14px] font-bold inline-flex items-center gap-1.5 shrink-0 active:scale-95 transition-transform"
+              >
+                {referralCopied ? (
+                  <>
+                    <Check weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+                    <span>{t('Copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+                    <span>{t('Copy link')}</span>
+                  </>
+                )}
               </button>
             </div>
-          </div>
-        ) : null}
+          </section>
+        )}
 
-        {/* Footer info */}
-        <div className="text-center pt-2 pb-4 space-y-1">
-          <p className="text-[11px] font-medium text-gray-400">
-            Medix Pharmacy Delivery • v2.4.1
-          </p>
-          <p className="text-[10px] text-gray-400">
-            Licensed Pharmacy Partner Network • Safe & Verified
-          </p>
-        </div>
-      </div>
+        {/* 1. MY STUFF */}
+        <SettingsGroup title={t('MY STUFF')}>
+          <SettingsRow
+            icon={MapPin}
+            label={t('Saved addresses')}
+            badge={defaultAddr ? `${defaultAddr.tag} · Default` : undefined}
+            value={`${addresses.length}`}
+            onClick={() => setActiveSheet('ADDRESSES')}
+          />
+          <SettingsRow
+            icon={Prescription}
+            label={t('Prescriptions')}
+            value={`${verifiedRxCount} ${t('verified')}`}
+            onClick={() => setActiveSheet('PRESCRIPTIONS')}
+          />
+          <SettingsRow
+            icon={ClockCounterClockwise}
+            label={t('Order history')}
+            onClick={() => navigate('/orders')}
+            isLast
+          />
+        </SettingsGroup>
 
-      {/* =====================================================================
-          INTERACTIVE APPLE SHEETS / MODALS
-      ====================================================================== */}
-      <AnimatePresence>
-        {activeSheet && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            {/* Scrim Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setActiveSheet(null)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-            />
-
-            {/* Sheet Canvas */}
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative w-full max-w-md bg-[#F2F2F7] rounded-t-[28px] sm:rounded-2xl max-h-[88vh] overflow-hidden flex flex-col shadow-2xl border-t sm:border border-black/[0.06] z-10"
-            >
-              {/* Grabber indicator */}
-              <div className="w-9 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1 shrink-0" />
-
-              {/* SHEET 1: LANGUAGE PICKER */}
-              {activeSheet === 'language' && (
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {t('Select Language')}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        Choose your preferred app interface language
-                      </p>
-                    </div>
+        {/* 2. PREFERENCES */}
+        <SettingsGroup title={t('PREFERENCES')}>
+          <SettingsRow
+            icon={Translate}
+            label={t('Language')}
+            rightElement={
+              <div className="inline-flex items-center bg-[#F7F4EC] p-1 rounded-[999px]">
+                {[
+                  { code: 'en', label: 'EN' },
+                  { code: 'bn', label: 'বাংলা' },
+                  { code: 'hi', label: 'हिन्दी' },
+                ].map((opt) => {
+                  const active = uiLangCode === opt.code;
+                  return (
                     <button
+                      key={opt.code}
                       type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-7 h-7 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 hover:bg-gray-300 active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden">
-                    {LANGUAGES.map((l) => {
-                      const isSelected = lang === l.code;
-                      return (
-                        <button
-                          key={l.code}
-                          type="button"
-                          onClick={() => {
-                            setLang(l.code);
-                            setTimeout(() => setActiveSheet(null), 250);
-                          }}
-                          className="w-full p-4 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer text-left"
-                        >
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {l.label}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {l.code === 'bn' ? 'বাংলা সংস্করণ' : 'English Edition'}
-                            </p>
-                          </div>
-                          {isSelected && (
-                            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* SHEET 2: NOTIFICATIONS PREFERENCES */}
-              {activeSheet === 'notifications' && (
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {t('Notifications')}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        Control how Medix contacts you about orders
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-7 h-7 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 hover:bg-gray-300 active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden">
-                    {/* Switch 1: Order Alerts */}
-                    <div className="p-3.5 flex items-center justify-between">
-                      <div className="pr-3">
-                        <p className="text-xs font-semibold text-gray-900">
-                          Order Status Alerts
-                        </p>
-                        <p className="text-[11px] text-gray-500">
-                          Real-time dispatch, pharmacist packing & delivery alerts
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleNotif('orderAlerts')}
-                        aria-pressed={notifPrefs.orderAlerts}
-                        className={`w-12 h-7 flex items-center rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
-                          notifPrefs.orderAlerts ? 'bg-[#34C759]' : 'bg-[#E9E9EB]'
-                        }`}
-                      >
-                        <motion.div
-                          layout
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className={`w-6 h-6 rounded-full bg-white shadow-md transform ${
-                            notifPrefs.orderAlerts ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Switch 2: WhatsApp Updates */}
-                    <div className="p-3.5 flex items-center justify-between">
-                      <div className="pr-3">
-                        <p className="text-xs font-semibold text-gray-900">
-                          WhatsApp Live Tracking
-                        </p>
-                        <p className="text-[11px] text-gray-500">
-                          Receive live receipt and rider contact on WhatsApp
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleNotif('whatsappUpdates')}
-                        aria-pressed={notifPrefs.whatsappUpdates}
-                        className={`w-12 h-7 flex items-center rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
-                          notifPrefs.whatsappUpdates ? 'bg-[#34C759]' : 'bg-[#E9E9EB]'
-                        }`}
-                      >
-                        <motion.div
-                          layout
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className={`w-6 h-6 rounded-full bg-white shadow-md transform ${
-                            notifPrefs.whatsappUpdates ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Switch 3: Promos */}
-                    <div className="p-3.5 flex items-center justify-between">
-                      <div className="pr-3">
-                        <p className="text-xs font-semibold text-gray-900">
-                          Health Tips & Discounts
-                        </p>
-                        <p className="text-[11px] text-gray-500">
-                          Notices about tiered medicine discounts and wellness
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleNotif('promosAndHealth')}
-                        aria-pressed={notifPrefs.promosAndHealth}
-                        className={`w-12 h-7 flex items-center rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
-                          notifPrefs.promosAndHealth ? 'bg-[#34C759]' : 'bg-[#E9E9EB]'
-                        }`}
-                      >
-                        <motion.div
-                          layout
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className={`w-6 h-6 rounded-full bg-white shadow-md transform ${
-                            notifPrefs.promosAndHealth ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-gray-400 px-1 text-center">
-                    Settings update immediately and sync on this device.
-                  </p>
-                </div>
-              )}
-
-              {/* SHEET 3: HELP & CUSTOMER SUPPORT */}
-              {activeSheet === 'support' && (
-                <div className="p-4 space-y-4 max-h-[82vh] overflow-y-auto">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {t('Help & Support')}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        We are here to assist with your medicines & orders
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-7 h-7 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 hover:bg-gray-300 active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Direct Contact Cards */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <a
-                      href="tel:+918918237582"
-                      className="p-3.5 bg-white rounded-2xl border border-black/[0.04] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 hover:bg-emerald-50/50 active:scale-98 transition-all"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-bold text-gray-900">Call Support</span>
-                      <span className="text-[10px] text-gray-500 font-mono">+91 8918237582</span>
-                    </a>
-
-                    <a
-                      href="https://wa.me/918918237582?text=Hello%20Medix%20Support%2C%20I%20have%20a%20question%20about%20my%20delivery"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-3.5 bg-white rounded-2xl border border-black/[0.04] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 hover:bg-emerald-50/50 active:scale-98 transition-all"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-[#25D366]/20 text-[#25D366] flex items-center justify-center">
-                        <MessageSquare className="w-4 h-4 fill-current" />
-                      </div>
-                      <span className="text-xs font-bold text-gray-900">WhatsApp Chat</span>
-                      <span className="text-[10px] text-gray-500">Instant Reply</span>
-                    </a>
-                  </div>
-
-                  {/* Frequently Asked Questions */}
-                  <div>
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-1 mb-2">
-                      Frequently Asked Questions
-                    </p>
-                    <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs divide-y divide-black/[0.05] overflow-hidden text-left">
-                      {[
-                        {
-                          q: 'How fast is medicine delivery?',
-                          a: 'Most orders are verified by the assigned local partner pharmacy and delivered within 45 to 60 minutes in active zones.',
-                        },
-                        {
-                          q: 'What are the current discount rules?',
-                          a: 'Orders from ₹500 to ₹1,500 receive 12% off. Orders above ₹1,500 receive 17% off automatically in the bill details.',
-                        },
-                        {
-                          q: 'Can I return medicines if damaged or incorrect?',
-                          a: 'Yes, if any item is sealed incorrectly or damaged during delivery, you can verify and refuse receipt with the rider for a full refund.',
-                        },
-                        {
-                          q: 'How do prescription medicines work?',
-                          a: 'Schedule H medicines are checked by our certified partner pharmacists before packing. Ensure patient details match.',
-                        },
-                      ].map((item, idx) => {
-                        const isOpen = openFaq === idx;
-                        return (
-                          <div key={item.q} className="overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => setOpenFaq(isOpen ? null : idx)}
-                              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors cursor-pointer"
-                            >
-                              <span className="text-xs font-semibold text-gray-900 pr-2">
-                                {item.q}
-                              </span>
-                              <ChevronDown
-                                className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${
-                                  isOpen ? 'rotate-180 text-emerald-600' : ''
-                                }`}
-                              />
-                            </button>
-                            {isOpen && (
-                              <div className="px-3.5 pb-3.5 text-[11px] text-gray-600 leading-relaxed bg-gray-50/60">
-                                {item.a}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SHEET 4: PRIVACY & DATA SECURITY */}
-              {activeSheet === 'privacy' && (
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {t('Privacy & Security')}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        Your health information is confidential
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-7 h-7 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 hover:bg-gray-300 active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">
-                          End-to-End Pharmacy Privacy
-                        </p>
-                        <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                          Order details and medicines are shared only with the designated licensed partner pharmacy packing your order.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-100 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
-                        <Shield className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">
-                          No Third-Party Advertising
-                        </p>
-                        <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                          We never sell customer phone numbers or order history to advertisers.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cache & Local Search History Reset */}
-                  <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs p-3.5 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-900">
-                        Clear Search & Local Cache
-                      </p>
-                      <p className="text-[11px] text-gray-500">
-                        Clears temporary medicine searches
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleClearCache}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 ${
-                        cacheCleared
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLanguageSelect(opt.code);
+                      }}
+                      className={`min-h-[36px] px-3 rounded-[999px] text-[14px] font-bold transition-all ${
+                        active
+                          ? 'bg-[#003820] text-white'
+                          : 'text-[#5E6B63] hover:text-[#0E1A14]'
                       }`}
                     >
-                      {cacheCleared ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Cleared!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="w-3.5 h-3.5 text-gray-500" />
-                          <span>Clear</span>
-                        </>
-                      )}
+                      {opt.label}
                     </button>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            }
+          />
+          <SettingsRow
+            icon={Bell}
+            label={t('Notifications')}
+            value={`${activeNotifCount}/3 ${t('on')}`}
+            onClick={() => setActiveSheet('NOTIFICATIONS')}
+          />
+          <SettingsRow
+            icon={Wallet}
+            label={t('Default payment')}
+            value="COD"
+            onClick={() => setActiveSheet('PAYMENT')}
+            isLast
+          />
+        </SettingsGroup>
 
-              {/* SHEET 5: EDIT PROFILE */}
-              {activeSheet === 'profile' && (
-                <form onSubmit={handleSaveProfile} className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        Edit Profile
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        Update your customer display name
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-7 h-7 rounded-full bg-gray-200/80 flex items-center justify-center text-gray-600 hover:bg-gray-300 active:scale-90 transition-transform cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+        {/* 3. HELP */}
+        <SettingsGroup title={t('HELP')}>
+          <SettingsRow
+            icon={PhoneCall}
+            label={t('Order on call')}
+            value="1800-123-456"
+            onClick={() => {
+              window.location.href = 'tel:+911800123456';
+            }}
+          />
+          <SettingsRow
+            icon={WhatsappLogo}
+            label={t('WhatsApp support')}
+            value={t('24×7 chat')}
+            onClick={() => {
+              window.open(
+                'https://wa.me/919876543210?text=Hi%20Medix%20Support',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
+          />
+          <SettingsRow
+            icon={Question}
+            label={t('FAQs')}
+            onClick={() => setActiveSheet('FAQS')}
+          />
+          <SettingsRow
+            icon={WarningCircle}
+            label={t('Report a problem')}
+            onClick={() => {
+              setReportSent(false);
+              setReportText('');
+              setActiveSheet('REPORT');
+            }}
+            isLast
+          />
+        </SettingsGroup>
 
-                  <div className="bg-white rounded-2xl border border-black/[0.04] shadow-xs p-3.5 space-y-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="e.g. Rahul Sharma"
-                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
-                        autoFocus
-                      />
-                    </div>
+        {/* 4. LEGAL */}
+        <SettingsGroup title={t('LEGAL')}>
+          <SettingsRow
+            icon={FileText}
+            label={t('Terms')}
+            onClick={() => setActiveSheet('TERMS')}
+          />
+          <SettingsRow
+            icon={ShieldCheck}
+            label={t('Privacy')}
+            onClick={() => setActiveSheet('PRIVACY')}
+          />
+          <SettingsRow
+            icon={Certificate}
+            label={t('Licence info')}
+            value={PHARMACY_LICENCE_NO}
+            onClick={() => setActiveSheet('LICENCE')}
+            isLast
+          />
+        </SettingsGroup>
 
-                    <div>
-                      <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1">
-                        Mobile Number
-                      </label>
-                      <input
-                        type="text"
-                        disabled
-                        value={`+91 ${phone}`}
-                        className="w-full px-3.5 py-2.5 text-sm bg-gray-100 text-gray-500 border border-gray-200 rounded-xl cursor-not-allowed font-mono"
-                      />
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        Mobile number is tied to your verified login
-                      </p>
-                    </div>
-                  </div>
+        {/* 5. Footer Actions: Log out (quiet text button), Delete account (small, red, behind confirm dialog with typed confirmation), app version */}
+        <footer className="pt-2 pb-4 text-center space-y-2">
+          <div className="flex items-center justify-center gap-6">
+            <button
+              type="button"
+              onClick={() => {
+                if (user) logout();
+              }}
+              className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-2 text-[15px] font-bold text-[#5E6B63] hover:text-[#0E1A14] active:scale-95 transition-transform"
+            >
+              <SignOut weight="bold" className="w-4 h-4" />
+              <span>{t('Log out')}</span>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmText('');
+                setActiveSheet('DELETE_ACCOUNT');
+              }}
+              className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-1.5 text-[14px] font-bold text-[#D64538] active:scale-95 transition-transform"
+            >
+              <Trash weight="bold" className="w-4 h-4" />
+              <span>{t('Delete account')}</span>
+            </button>
+          </div>
+
+          <p className="text-[14px] text-[#5E6B63] tabular-nums">
+            medix. v2.4.0 · DL {PHARMACY_LICENCE_NO}
+          </p>
+        </footer>
+      </main>
+
+      {/* ==================== BOTTOM SHEETS & DIALOGS ==================== */}
+      {activeSheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0E1A14]/55 backdrop-blur-xs p-0 sm:p-4"
+          onClick={() => setActiveSheet(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-t-[24px] sm:rounded-[24px] max-h-[86vh] overflow-y-auto p-5 shadow-[0_12px_32px_-8px_rgba(0,56,32,0.22)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* EDIT PROFILE SHEET */}
+            {activeSheet === 'EDIT_PROFILE' && (
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('edit profile.')}
+                  </h3>
                   <button
-                    type="submit"
-                    disabled={!editName.trim()}
-                    className={`w-full py-3 rounded-full text-xs font-bold text-white shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 ${
-                      saveSuccess
-                        ? 'bg-emerald-600'
-                        : 'bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50'
-                    }`}
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
                   >
-                    {saveSuccess ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Saved Successfully</span>
-                      </>
-                    ) : (
-                      <span>Save Changes</span>
-                    )}
+                    <X weight="bold" className="w-5 h-5" />
                   </button>
-                </form>
-              )}
+                </div>
 
-              {/* SHEET 6: LOGOUT CONFIRMATION */}
-              {activeSheet === 'logout' && (
-                <div className="p-4 space-y-4">
-                  <div className="text-center pt-2 pb-1 space-y-1">
-                    <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-2">
-                      <LogOut className="w-6 h-6 stroke-[2]" />
+                <div>
+                  <label className="block text-[14px] font-bold text-[#5E6B63] mb-1.5">
+                    {t('Full name')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] font-semibold text-[#0E1A14] focus:outline-none focus:ring-2 focus:ring-[#003820]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[14px] font-bold text-[#5E6B63] mb-1.5">
+                    {t('Phone number')}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] font-semibold text-[#0E1A14] focus:outline-none focus:ring-2 focus:ring-[#003820]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="w-full min-h-[48px] rounded-[999px] bg-[#003820] text-white text-[15px] font-bold"
+                >
+                  {savingProfile ? t('Saving...') : t('Save changes')}
+                </button>
+              </form>
+            )}
+
+            {/* SAVED ADDRESSES SHEET */}
+            {activeSheet === 'ADDRESSES' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('saved addresses.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {addresses.map((addr) => (
+                    <div
+                      key={addr.id}
+                      onClick={() =>
+                        setAddresses((prev) =>
+                          prev.map((a) => ({
+                            ...a,
+                            isDefault: a.id === addr.id,
+                          }))
+                        )
+                      }
+                      className={`p-4 rounded-[16px] cursor-pointer transition-colors ${
+                        addr.isDefault ? 'bg-[#E3EFE8]' : 'bg-[#F7F4EC]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-[999px] bg-[#003820] text-white text-[14px] font-bold">
+                            {addr.tag}
+                          </span>
+                          {addr.isDefault && (
+                            <span className="px-2.5 py-0.5 rounded-[999px] bg-[#C6F26B] text-[#003820] text-[14px] font-extrabold">
+                              {t('Default')}
+                            </span>
+                          )}
+                        </div>
+                        {addr.isDefault && (
+                          <Check
+                            weight="bold"
+                            className="w-5 h-5 text-[#003820]"
+                          />
+                        )}
+                      </div>
+                      <p className="text-[15px] font-semibold text-[#0E1A14] mt-1">
+                        {addr.addressLine}
+                      </p>
+                      <p className="text-[14px] text-[#5E6B63]">
+                        {addr.landmark}
+                      </p>
                     </div>
-                    <h3 className="text-base font-bold text-gray-900">
-                      Sign Out of Medix?
-                    </h3>
-                    <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                      You will need to enter your phone number to access your saved delivery addresses and past orders again.
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextId = `addr_${Date.now()}`;
+                    setAddresses((prev) => [
+                      ...prev,
+                      {
+                        id: nextId,
+                        tag: 'Home',
+                        isDefault: false,
+                        addressLine: '12B Park Street, Mullick Bazar, Kolkata',
+                        landmark: 'Opposite Allen Park',
+                      },
+                    ]);
+                  }}
+                  className="w-full min-h-[48px] rounded-[999px] bg-[#003820] text-white text-[15px] font-bold inline-flex items-center justify-center gap-2"
+                >
+                  <Plus weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+                  <span>{t('Add new address')}</span>
+                </button>
+              </div>
+            )}
+
+            {/* PRESCRIPTIONS SHEET */}
+            {activeSheet === 'PRESCRIPTIONS' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('prescriptions.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {prescriptions.map((rx) => (
+                    <div
+                      key={rx.id}
+                      className="p-4 rounded-[16px] bg-[#F7F4EC] space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[15px] font-bold text-[#0E1A14]">
+                            {rx.doctorName}
+                          </p>
+                          <p className="text-[14px] text-[#5E6B63]">
+                            {rx.clinic} · {rx.uploadedAt}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`px-2.5 py-0.5 rounded-[999px] text-[14px] font-bold ${
+                            rx.verified
+                              ? 'bg-[#E3EFE8] text-[#003820]'
+                              : 'bg-[#D64538]/10 text-[#D64538]'
+                          }`}
+                        >
+                          {rx.verified ? t('Verified Rx') : t('Expired')}
+                        </span>
+                      </div>
+                      <p className="text-[14px] font-medium text-[#0E1A14]">
+                        {rx.medicines.join(', ')}
+                      </p>
+                      <p className="text-[14px] text-[#5E6B63]">
+                        {rx.expiryLabel}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* NOTIFICATIONS TOGGLES SHEET */}
+            {activeSheet === 'NOTIFICATIONS' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('notifications.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {[
+                    {
+                      key: 'orderUpdates',
+                      label: t('Order updates'),
+                      desc: t('Live rider tracking, OTP, and pharmacy status'),
+                    },
+                    {
+                      key: 'refillReminders',
+                      label: t('Refill reminders'),
+                      desc: t('Timely nudge before your monthly strip runs out'),
+                    },
+                    {
+                      key: 'offers',
+                      label: t('Offers & discounts'),
+                      desc: t('Occasional savings on household essentials'),
+                    },
+                  ].map((item) => {
+                    const enabled = notifSettings[item.key];
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() =>
+                          setNotifSettings((prev) => ({
+                            ...prev,
+                            [item.key]: !prev[item.key],
+                          }))
+                        }
+                        className="w-full min-h-[64px] p-4 rounded-[16px] bg-[#F7F4EC] flex items-center justify-between gap-3 text-left"
+                      >
+                        <div>
+                          <p className="text-[15px] font-bold text-[#0E1A14]">
+                            {item.label}
+                          </p>
+                          <p className="text-[14px] text-[#5E6B63]">
+                            {item.desc}
+                          </p>
+                        </div>
+                        <div
+                          className={`w-12 h-7 rounded-[999px] p-1 transition-colors flex items-center shrink-0 ${
+                            enabled ? 'bg-[#003820] justify-end' : 'bg-[#5E6B63]/30 justify-start'
+                          }`}
+                        >
+                          <span
+                            className={`w-5 h-5 rounded-full ${
+                              enabled ? 'bg-[#C6F26B]' : 'bg-white'
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* DEFAULT PAYMENT SHEET */}
+            {activeSheet === 'PAYMENT' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('default payment.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-[16px] bg-[#E3EFE8] flex items-center justify-between">
+                  <div>
+                    <p className="text-[15px] font-bold text-[#003820]">
+                      {t('Cash on Delivery (COD)')}
+                    </p>
+                    <p className="text-[14px] text-[#5E6B63]">
+                      {t('Pay by cash or UPI QR to the rider at your doorstep.')}
                     </p>
                   </div>
-
-                  <div className="space-y-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        logout();
-                        setActiveSheet(null);
-                      }}
-                      className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-xs shadow-xs active:scale-98 transition-all cursor-pointer"
-                    >
-                      Sign Out
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSheet(null)}
-                      className="w-full py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full font-semibold text-xs active:scale-98 transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <Check weight="bold" className="w-5 h-5 text-[#003820] shrink-0" />
                 </div>
-              )}
-            </motion.div>
+              </div>
+            )}
+
+            {/* FAQs SHEET */}
+            {activeSheet === 'FAQS' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('frequently asked.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {MOCK_FAQS.map((faq, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-[16px] bg-[#F7F4EC] space-y-1"
+                    >
+                      <p className="text-[15px] font-bold text-[#0E1A14]">
+                        {faq.q}
+                      </p>
+                      <p className="text-[14px] text-[#5E6B63] leading-relaxed">
+                        {faq.a}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* REPORT A PROBLEM SHEET */}
+            {activeSheet === 'REPORT' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {t('report a problem.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {reportSent ? (
+                  <div className="p-5 rounded-[16px] bg-[#E3EFE8] text-[#003820] text-center space-y-2">
+                    <p className="font-display font-bold text-[18px]">
+                      {t('Thank you for letting us know.')}
+                    </p>
+                    <p className="text-[14px]">
+                      {t('Our pharmacist team will reach out within 15 minutes.')}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      rows={4}
+                      value={reportText}
+                      onChange={(e) => setReportText(e.target.value)}
+                      placeholder={t('Tell us what went wrong with your order or app...')}
+                      className="w-full p-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14] focus:outline-none focus:ring-2 focus:ring-[#003820]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setReportSent(true)}
+                      className="w-full min-h-[48px] rounded-[999px] bg-[#003820] text-white text-[15px] font-bold"
+                    >
+                      {t('Submit report')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TERMS / PRIVACY / LICENCE SHEETS */}
+            {(activeSheet === 'TERMS' ||
+              activeSheet === 'PRIVACY' ||
+              activeSheet === 'LICENCE') && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {activeSheet === 'TERMS'
+                      ? t('terms of service.')
+                      : activeSheet === 'PRIVACY'
+                      ? t('privacy policy.')
+                      : t('pharmacy licence.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-[16px] bg-[#F7F4EC] space-y-2.5 text-[14px] text-[#0E1A14] leading-relaxed">
+                  {activeSheet === 'LICENCE' ? (
+                    <>
+                      <p className="font-bold text-[16px] text-[#003820]">
+                        Drug Licence No: {PHARMACY_LICENCE_NO}
+                      </p>
+                      <p className="text-[#5E6B63]">
+                        All medicines on Medix are dispensed exclusively by licensed retail pharmacies under the supervision of registered pharmacists in compliance with the Drugs and Cosmetics Act, 1940.
+                      </p>
+                      <p className="text-[#5E6B63]">
+                        Schedule H & H1 prescription medicines require a valid doctor prescription uploaded and verified before dispatch.
+                      </p>
+                    </>
+                  ) : activeSheet === 'TERMS' ? (
+                    <p className="text-[#5E6B63]">
+                      Medix connects you with licensed neighbourhood pharmacies for 20-minute doorstep delivery. Orders may be cancelled free of charge before they are packed by the partner pharmacy.
+                    </p>
+                  ) : (
+                    <p className="text-[#5E6B63]">
+                      Your medical history, uploaded prescriptions, and phone number are encrypted and shared strictly with the dispensing pharmacist fulfilling your order. We never sell health data to third parties.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* DELETE ACCOUNT CONFIRM DIALOG (WITH TYPED CONFIRMATION) */}
+            {activeSheet === 'DELETE_ACCOUNT' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#D64538]">
+                    {t('delete account.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <p className="text-[14px] text-[#5E6B63] leading-relaxed">
+                  {t(
+                    'This permanently deletes your saved addresses, uploaded prescriptions, and order history. Type DELETE below to confirm.'
+                  )}
+                </p>
+
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE to confirm"
+                  className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] font-bold text-[#0E1A14] focus:outline-none focus:ring-2 focus:ring-[#D64538]"
+                />
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="flex-1 min-h-[48px] rounded-[999px] bg-[#F7F4EC] text-[#0E1A14] text-[14px] font-bold"
+                  >
+                    {t('Cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                    onClick={() => {
+                      logout();
+                      setActiveSheet(null);
+                      navigate('/search');
+                    }}
+                    className="flex-1 min-h-[48px] rounded-[999px] bg-[#D64538] text-white text-[14px] font-bold disabled:opacity-40"
+                  >
+                    {t('Delete forever')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* AUTH SIGN IN / REGISTER SHEET */}
+            {activeSheet === 'AUTH' && (
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
+                    {authMode === 'login' ? t('sign in.') : t('create account.')}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                  >
+                    <X weight="bold" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {authError && (
+                  <p className="p-3 rounded-[12px] bg-[#D64538]/10 text-[#D64538] text-[14px] font-semibold">
+                    {authError}
+                  </p>
+                )}
+
+                {authMode === 'register' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder={t('Full name')}
+                    value={authForm.name}
+                    onChange={(e) =>
+                      setAuthForm({ ...authForm, name: e.target.value })
+                    }
+                    className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
+                  />
+                )}
+
+                <input
+                  type="tel"
+                  required
+                  placeholder={t('Phone number')}
+                  value={authForm.phone}
+                  onChange={(e) =>
+                    setAuthForm({ ...authForm, phone: e.target.value })
+                  }
+                  className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
+                />
+
+                <input
+                  type="password"
+                  required
+                  placeholder={t('Password')}
+                  value={authForm.password}
+                  onChange={(e) =>
+                    setAuthForm({ ...authForm, password: e.target.value })
+                  }
+                  className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
+                />
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full min-h-[48px] rounded-[999px] bg-[#003820] text-white text-[15px] font-bold"
+                >
+                  {authLoading
+                    ? t('Please wait...')
+                    : authMode === 'login'
+                    ? t('Sign in')
+                    : t('Create account')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAuthMode(authMode === 'login' ? 'register' : 'login')
+                  }
+                  className="w-full min-h-[44px] text-[14px] font-bold text-[#003820]"
+                >
+                  {authMode === 'login'
+                    ? t('New to Medix? Create an account')
+                    : t('Already have an account? Sign in')}
+                </button>
+              </form>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

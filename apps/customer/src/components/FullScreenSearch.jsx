@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ArrowLeft, Search as SearchIcon, X, SearchX, Loader2, TrendingUp, ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 import MedicineCard from './MedicineCard';
 import CartBar from './CartBar';
@@ -34,13 +33,11 @@ export default function FullScreenSearch({ isOpen, onClose, initialQuery = '' })
   const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_LIMIT);
   const inputRef = useRef(null);
 
-  // Cart Store selectors and actions
   const cartItems = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const increment = useCartStore((state) => state.increment);
   const decrement = useCartStore((state) => state.decrement);
 
-  // Map of cart quantities
   const quantityMap = useMemo(() => {
     const map = {};
     for (const item of cartItems) {
@@ -49,30 +46,26 @@ export default function FullScreenSearch({ isOpen, onClose, initialQuery = '' })
     return map;
   }, [cartItems]);
 
-  // Fetch medicines using cached TanStack Query with smart ranking
   const { medicines, isLoading, isFetching } = useMedicines({
     query,
     popular: true,
     limit: query ? 80 : 20,
   });
 
-  // Reset display count when query changes
   useEffect(() => {
     setDisplayCount(INITIAL_DISPLAY_LIMIT);
   }, [query]);
 
-  // Autofocus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setQuery(initialQuery);
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 80);
+      }, 60);
       return () => clearTimeout(timer);
     }
   }, [isOpen, initialQuery]);
 
-  // Lock body scroll when search overlay is open
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -100,156 +93,134 @@ export default function FullScreenSearch({ isOpen, onClose, initialQuery = '' })
   const hasMore = medicines.length > displayCount;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 15 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-        className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden"
+    <div className="fixed inset-0 z-50 bg-[#F7F4EC] text-[#0E1A14] flex flex-col overflow-hidden">
+      {/* Top Deep Green Search Header */}
+      <div
+        style={{
+          paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+        }}
+        className="bg-[#003820] px-5 pb-4 flex items-center gap-3"
       >
-        {/* Top Sticky Search Header */}
-        <div className="bg-white border-b border-gray-100 shadow-xs px-3 py-2.5 flex items-center gap-2">
-          {/* Back button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-ink-light hover:text-ink hover:bg-gray-100 transition-colors touch-manipulation flex-shrink-0"
-            aria-label={t('Back to home')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-11 h-11 rounded-[999px] bg-white/12 hover:bg-white/18 active:scale-[0.95] transition-transform duration-150 flex items-center justify-center text-white touch-manipulation shrink-0 cursor-pointer"
+          aria-label={t('Back to home')}
+        >
+          <ArrowLeft className="w-5 h-5 stroke-[2.4]" />
+        </button>
 
-          {/* Full-width Search Input */}
-          <div className="relative flex-1 flex items-center">
-            <div className="absolute left-3.5 pointer-events-none flex items-center justify-center">
-              {isFetching ? (
-                <Loader2 className="w-4 h-4 text-brand-green animate-spin" />
-              ) : (
-                <SearchIcon
-                  className={`w-4 h-4 ${isBabyCare ? 'text-[#BF5B76]' : 'text-brand-green'}`}
-                />
-              )}
+        <div className="relative flex-1 flex items-center">
+          <div className="absolute left-4 pointer-events-none flex items-center justify-center">
+            {isFetching ? (
+              <Loader2 className="w-5 h-5 text-[#003820] animate-spin" />
+            ) : (
+              <SearchIcon className="w-5 h-5 text-[#003820] stroke-[2.4]" />
+            )}
+          </div>
+
+          <input
+            ref={inputRef}
+            type="text"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              isBabyCare
+                ? t('Search diapers, formula, baby care...')
+                : t('Search medicines, salts, symptoms...')
+            }
+            className="w-full h-[48px] pl-12 pr-11 bg-white rounded-[999px] text-[16px] font-medium text-[#0E1A14] placeholder:text-[#5E6B63] focus:outline-none touch-manipulation"
+            aria-label={t('Search medicines input')}
+          />
+
+          {query && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2 w-9 h-9 rounded-[999px] bg-[#EFEAD8] active:scale-[0.94] transition-transform duration-150 flex items-center justify-center text-[#0E1A14] touch-manipulation cursor-pointer"
+              aria-label={t('Clear search')}
+            >
+              <X className="w-4 h-4 stroke-[2.4]" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Scrollable Results Area */}
+      <div className="flex-1 overflow-y-auto overscroll-contain max-w-md w-full mx-auto px-5 py-5 space-y-5 pb-32">
+        {!isTyping && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-[14px] font-bold text-[#5E6B63]">
+              <TrendingUp className="w-4 h-4 text-[#003820] stroke-[2.25]" />
+              <span>{t('Most searched medicines')}</span>
             </div>
 
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={isBabyCare ? t('Search baby diapers, food, care...') : t('Search medicine name here..')}
-              className={`w-full h-11 pl-10 pr-10 bg-gray-50 focus:bg-white rounded-pill text-[15px] sm:text-base font-medium text-ink placeholder:text-gray-400 placeholder:text-[14.5px] sm:placeholder:text-base border border-gray-200 focus:outline-none transition-all touch-manipulation ${
-                isBabyCare
-                  ? 'focus:border-[#CE6A85] focus:ring-2 focus:ring-[#CE6A85]/20'
-                  : 'focus:border-brand-green focus:ring-2 focus:ring-emerald-500/15'
-              }`}
-              aria-label={t('Search medicines input')}
-            />
+            <div className="flex flex-wrap gap-2">
+              {POPULAR_SEARCH_TAGS.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => handleTagClick(tag)}
+                  className="min-h-[40px] px-4 bg-white rounded-[999px] text-[14px] font-medium text-[#0E1A14] active:scale-[0.96] transition-transform duration-150 touch-manipulation cursor-pointer"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-            {query && (
+        <div className="flex items-baseline justify-between pt-1">
+          <h3 className="font-display font-extrabold text-[22px] tracking-[-0.02em] text-[#0E1A14]">
+            {isTyping ? `${t.num(medicines.length)} results.` : 'essential medicines.'}
+          </h3>
+          <span className="text-[14px] text-[#5E6B63] font-medium">
+            {isTyping ? t('Verified stock') : t('20-min delivery')}
+          </span>
+        </div>
+
+        {visibleMedicines.length > 0 ? (
+          <div className="space-y-3">
+            {visibleMedicines.map((medicine) => (
+              <MedicineCard
+                key={medicine.id}
+                medicine={medicine}
+                quantity={quantityMap[medicine.id] || 0}
+                onAdd={addItem}
+                onIncrement={increment}
+                onDecrement={decrement}
+              />
+            ))}
+
+            {hasMore && (
               <button
                 type="button"
-                onClick={handleClear}
-                className="absolute right-2.5 w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors touch-manipulation"
-                aria-label={t('Clear search')}
+                onClick={() => setDisplayCount((prev) => prev + 25)}
+                className="w-full min-h-[48px] mt-3 bg-white rounded-[999px] text-[14px] font-bold text-[#003820] flex items-center justify-center gap-2 touch-manipulation cursor-pointer active:scale-[0.98] transition-transform duration-150"
               >
-                <X className="w-3.5 h-3.5" />
+                <span>{t('Show more ({n} remaining)', { n: medicines.length - visibleMedicines.length })}</span>
+                <ChevronDown className="w-4 h-4 stroke-[2.4]" />
               </button>
             )}
           </div>
-        </div>
-
-        {/* Scrollable Results Area */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-4 pb-36">
-          {/* Trending Suggestions when not searching */}
-          {!isTyping && (
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-ink-muted uppercase tracking-wider">
-                <TrendingUp
-                  className={`w-3.5 h-3.5 ${isBabyCare ? 'text-[#BF5B76]' : 'text-brand-green'}`}
-                />
-                <span>{t('Popular Searches')}</span>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {POPULAR_SEARCH_TAGS.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => handleTagClick(tag)}
-                    className={`px-3 py-1.5 bg-gray-50 border border-gray-200/70 rounded-full text-xs font-medium text-gray-700 transition-colors touch-manipulation ${
-                      isBabyCare
-                        ? 'hover:bg-[#FDF2F4] hover:text-[#BF5B76] hover:border-[#CE6A85]/40'
-                        : 'hover:bg-emerald-50 hover:text-brand-green hover:border-emerald-200'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Results Header */}
-          <div className="flex items-center justify-between pt-1">
-            <h3 className="text-xs font-bold text-ink uppercase tracking-wider">
-              {isTyping ? t('Matching Medicines ({n})', { n: medicines.length }) : t('Trending')}
-            </h3>
-            {isTyping ? (
-              <span className="text-[11px] text-brand-green font-medium">{t('Lightning-fast search')}</span>
-            ) : (
-              <span className="text-[11px] text-ink-lighter">{t('Top 20 in India')}</span>
-            )}
+        ) : isLoading ? (
+          <div className="py-16 text-center flex flex-col items-center justify-center">
+            <Loader2 className="w-7 h-7 text-[#003820] animate-spin mb-3" />
+            <p className="text-[14px] text-[#5E6B63] font-medium">{t('Searching pharmacy catalog...')}</p>
           </div>
+        ) : (
+          <div className="py-12 px-6 bg-white rounded-[16px] text-center flex flex-col items-center justify-center space-y-2">
+            <SearchX className="w-8 h-8 text-[#5E6B63] stroke-[2] mb-1" />
+            <h4 className="font-display font-bold text-[18px] text-[#0E1A14]">{t('No medicines found.')}</h4>
+            <p className="text-[14px] text-[#5E6B63] max-w-[260px]">
+              {t('We couldn\'t find "{q}". Check spelling or search by salt name.', { q: query })}
+            </p>
+          </div>
+        )}
+      </div>
 
-          {/* Medicines List */}
-          {visibleMedicines.length > 0 ? (
-            <div className="space-y-2.5">
-              {visibleMedicines.map((medicine) => (
-                <MedicineCard
-                  key={medicine.id}
-                  medicine={medicine}
-                  quantity={quantityMap[medicine.id] || 0}
-                  onAdd={addItem}
-                  onIncrement={increment}
-                  onDecrement={decrement}
-                />
-              ))}
-
-              {/* Show more button if search has many matches */}
-              {hasMore && (
-                <button
-                  type="button"
-                  onClick={() => setDisplayCount((prev) => prev + 25)}
-                  className="w-full py-2.5 mt-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
-                >
-                  <span>{t('Show More Results ({n} remaining)', { n: medicines.length - visibleMedicines.length })}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          ) : isLoading ? (
-            <div className="py-12 text-center flex flex-col items-center justify-center">
-              <Loader2 className="w-6 h-6 text-brand-green animate-spin mb-2" />
-              <p className="text-xs text-ink-light">{t('Searching medicines database...')}</p>
-            </div>
-          ) : (
-            /* Empty state */
-            <div className="py-12 text-center flex flex-col items-center justify-center">
-              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3 text-gray-400">
-                <SearchX className="w-7 h-7" />
-              </div>
-              <h4 className="font-semibold text-sm text-ink">{t('No medicines found')}</h4>
-              <p className="text-xs text-ink-light mt-1 max-w-[240px]">
-                {t('We couldn\'t find any medicine matching "{q}". Check spelling or search by chemical salt.', { q: query })}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Floating Cart Bar at bottom of full-screen search */}
-        <CartBar />
-      </motion.div>
-    </AnimatePresence>
+      <CartBar />
+    </div>
   );
 }

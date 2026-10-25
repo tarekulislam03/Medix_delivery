@@ -1,91 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, ChevronRight } from 'lucide-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../store/cartStore';
+import { formatPrice } from '../lib/fees';
 import { useT } from '../lib/i18n';
 
 export default function CartBar() {
   const t = useT();
-  const location = useLocation();
-  const isBabyCare = location.pathname.startsWith('/baby-care');
+  const items = useCartStore((state) => state.items);
   const totalItems = useCartStore((state) => state.getTotalItems());
   const totalPrice = useCartStore((state) => state.getTotalPrice());
-
-  // Lock position to stable screen height so opening the virtual keyboard never shifts or moves it
-  const [stableHeight, setStableHeight] = useState(null);
-
-  useEffect(() => {
-    const updateStableHeight = () => {
-      // If user is currently typing/focused in an input, keyboard is open -> freeze position
-      const activeEl = document.activeElement;
-      const isInputFocused =
-        activeEl &&
-        (activeEl.tagName === 'INPUT' ||
-          activeEl.tagName === 'TEXTAREA' ||
-          activeEl.isContentEditable);
-      if (isInputFocused) return;
-
-      if (typeof window !== 'undefined') {
-        setStableHeight(window.innerHeight);
-      }
-    };
-
-    updateStableHeight();
-    window.addEventListener('resize', updateStableHeight);
-    window.addEventListener('orientationchange', updateStableHeight);
-    return () => {
-      window.removeEventListener('resize', updateStableHeight);
-      window.removeEventListener('orientationchange', updateStableHeight);
-    };
-  }, []);
+  const medicinesCount = items.length;
 
   return (
     <AnimatePresence>
       {totalItems > 0 && (
-        <div
+        <motion.div
+          initial={{ y: 28, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 28, opacity: 0 }}
+          transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
           style={{
-            position: 'fixed',
-            top: stableHeight
-              ? `calc(${stableHeight}px - 4.85rem - 52px - env(safe-area-inset-bottom, 0px))`
-              : 'calc(100svh - 4.85rem - 52px - env(safe-area-inset-bottom, 0px))',
-            bottom: 'auto',
+            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
           }}
-          className="left-0 right-0 z-40 px-4 pointer-events-none select-none"
+          className="fixed left-0 right-0 z-40 px-4 pointer-events-none select-none"
         >
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-            className="max-w-md mx-auto pointer-events-auto"
-          >
-            <Link to="/cart" className="block touch-manipulation">
-              <motion.div
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', damping: 20, stiffness: 400 }}
-                className={`w-full h-[52px] min-h-[52px] backdrop-blur-xl saturate-[180%] text-white rounded-full px-5 py-3 border border-white/25 flex items-center justify-between font-medium cursor-pointer transition-colors duration-200 ${
-                  isBabyCare
-                    ? 'bg-[#88304E] hover:bg-[#782943] active:bg-[#682038] shadow-[0_8px_28px_rgba(136,48,78,0.42),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                    : 'bg-emerald-800 hover:bg-emerald-850 active:bg-emerald-900 shadow-[0_8px_28px_rgba(6,95,70,0.38),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                }`}
+          <div className="max-w-md mx-auto pointer-events-auto">
+            <Link
+              to="/cart"
+              className="block touch-manipulation transition-transform duration-150 active:scale-[0.97]"
+            >
+              <div
+                style={{
+                  boxShadow: '0 14px 34px -6px rgba(0, 56, 32, 0.32)',
+                }}
+                className="w-full min-h-[60px] bg-[#003820] text-white rounded-[999px] pl-5 pr-2.5 py-2 flex items-center justify-between gap-3 cursor-pointer"
               >
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
-                    <ShoppingBag className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold tracking-tight tabular-nums">
-                    {t('View Cart')} · {t.num(totalItems)} {t(totalItems === 1 ? 'item' : 'items')} · ₹{t.num(Number(totalPrice || 0).toFixed(2))}
-                  </span>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-white/80 leading-tight truncate tabular-nums">
+                    {t.num(totalItems)} {totalItems === 1 ? t('item') : t('items')} · {t.num(medicinesCount)}{' '}
+                    {medicinesCount === 1 ? t('medicine') : t('medicines')}
+                  </p>
+                  <p className="font-display font-bold text-[20px] text-white leading-tight tracking-[-0.02em] tabular-nums">
+                    {formatPrice(Math.round(totalPrice))}
+                  </p>
                 </div>
 
-                <div className="flex items-center text-white/90">
-                  <ChevronRight className="w-5 h-5" />
+                <div className="min-h-[44px] px-4 rounded-[999px] bg-[#C6F26B] text-[#0E1A14] font-display font-bold text-[15px] tracking-[-0.02em] flex items-center gap-1.5 shrink-0">
+                  <span>{t('your cart.')}</span>
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </div>
-              </motion.div>
+              </div>
             </Link>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

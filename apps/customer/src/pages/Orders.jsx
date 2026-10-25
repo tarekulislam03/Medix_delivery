@@ -1,292 +1,443 @@
-import React, { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { RefreshCw, Package, HelpCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  CheckCircle,
+  ArrowRight,
+  Phone,
+  WhatsappLogo,
+  X,
+  Flask,
+} from '@phosphor-icons/react';
 import { useOrders } from '../lib/useOrders';
-import { ACTIVE_STATUS_KEYS, PAST_STATUS_KEYS, formatMonthYear } from '../lib/orderStatus';
-import { useCartStore } from '../store/cartStore';
-import { useUserStore } from '../store/userStore';
-
-import OrderCard from '../components/OrderCard';
+import {
+  ACTIVE_STATUS_KEYS,
+  PAST_STATUS_KEYS,
+  formatMonthYear,
+} from '../lib/orderStatus';
+import {
+  MOCK_ACTIVE_ORDERS,
+  MOCK_PAST_ORDERS,
+} from '../lib/medixMockData';
+import ActiveOrderCard from '../components/OrderCard';
 import PastOrderCard from '../components/PastOrderCard';
 import OrderDetailsSheet from '../components/OrderDetailsSheet';
-import BottomSheet from '../components/BottomSheet';
-import SkeletonCard from '../components/SkeletonCard';
+import { useCartStore } from '../store/cartStore';
 import { useT } from '../lib/i18n';
 
-const CANCELLATION_REASONS = [
-  'Ordered by mistake',
-  'Takes too long',
-  'Changed mind',
-  'Found better price',
-  'Other',
-];
+function OrdersSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#003820]/90 rounded-[16px] p-5 space-y-4 animate-pulse">
+        <div className="flex justify-between">
+          <div className="h-6 w-40 bg-white/15 rounded-[999px]" />
+          <div className="h-5 w-24 bg-white/15 rounded-[999px]" />
+        </div>
+        <div className="h-8 w-56 bg-white/20 rounded-[12px]" />
+        <div className="h-44 w-full bg-white/10 rounded-[16px]" />
+        <div className="h-14 w-full bg-white/10 rounded-[16px]" />
+      </div>
+      {[1, 2].map((n) => (
+        <div
+          key={n}
+          className="bg-white rounded-[16px] p-4 space-y-3 animate-pulse"
+        >
+          <div className="flex justify-between">
+            <div className="space-y-1.5">
+              <div className="h-5 w-44 bg-[#0E1A14]/10 rounded" />
+              <div className="h-4 w-28 bg-[#0E1A14]/8 rounded" />
+            </div>
+            <div className="h-6 w-20 bg-[#0E1A14]/10 rounded-[999px]" />
+          </div>
+          <div className="h-14 w-full bg-[#F7F4EC] rounded-[12px]" />
+          <div className="flex gap-2.5">
+            <div className="h-11 w-32 bg-[#F7F4EC] rounded-[999px]" />
+            <div className="h-11 flex-1 bg-[#003820]/20 rounded-[999px]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Orders() {
-  const t = useT();
+  const { t } = useT();
   const navigate = useNavigate();
-  const phone = useUserStore((state) => state.phone);
-  const [selectedPastOrder, setSelectedPastOrder] = useState(null);
-  const [orderToCancel, setOrderToCancel] = useState(null);
-  const [selectedReason, setSelectedReason] = useState(CANCELLATION_REASONS[0]);
-  const [helpToast, setHelpToast] = useState(false);
-
-  // TanStack Query orders hook
-  const { orders, isLoading, isRefetching, refetch, cancelOrder, isCancelling } = useOrders();
   const addMultipleItems = useCartStore((state) => state.addMultipleItems);
 
-  // Separate active and past orders
-  const activeOrders = useMemo(() => {
-    return orders.filter((o) => ACTIVE_STATUS_KEYS.includes(o.status));
-  }, [orders]);
+  const { orders: apiOrders = [], isLoading, cancelOrder } = useOrders();
+  const [cancelledMockIds, setCancelledMockIds] = useState([]);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [supportOrder, setSupportOrder] = useState(null);
+  const [pastFilter, setPastFilter] = useState('ALL'); // 'ALL' | 'DELIVERED' | 'CANCELLED'
+  const [showEmptyDemo, setShowEmptyDemo] = useState(false);
+  const [reorderToast, setReorderToast] = useState(null);
 
-  const pastOrders = useMemo(() => {
-    return orders.filter((o) => PAST_STATUS_KEYS.includes(o.status));
-  }, [orders]);
+  // Merge live API orders with realistic mock data when API returns empty so all states can be previewed immediately
+  const allOrders = useMemo(() => {
+    if (showEmptyDemo) return [];
+    const baseList =
+      apiOrders && apiOrders.length > 0
+        ? apiOrders
+        : [...MOCK_ACTIVE_ORDERS, ...MOCK_PAST_ORDERS];
 
-  // Group past orders by Month/Year
+    return baseList.map((order) =>
+      cancelledMockIds.includes(order._id)
+        ? {
+            ...order,
+            status: 'CANCELLED',
+            cancelReason: 'Cancelled by you before packing.',
+          }
+        : order
+    );
+  }, [apiOrders, cancelledMockIds, showEmptyDemo]);
+
+  const activeOrders = useMemo(
+    () => allOrders.filter((o) => ACTIVE_STATUS_KEYS.includes(o.status)),
+    [allOrders]
+  );
+
+  const pastOrders = useMemo(
+    () => allOrders.filter((o) => PAST_STATUS_KEYS.includes(o.status)),
+    [allOrders]
+  );
+
+  // Default to Active if one exists, otherwise Past
+  const [activeTab, setActiveTab] = useState('ACTIVE');
+  const [hasInitializedTab, setHasInitializedTab] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !hasInitializedTab) {
+      setActiveTab(activeOrders.length > 0 ? 'ACTIVE' : 'PAST');
+      setHasInitializedTab(true);
+    }
+  }, [isLoading, activeOrders.length, hasInitializedTab]);
+
+  // Filtered past orders by chip: All | Delivered | Cancelled
+  const filteredPastOrders = useMemo(() => {
+    if (pastFilter === 'DELIVERED') {
+      return pastOrders.filter((o) => o.status === 'DELIVERED');
+    }
+    if (pastFilter === 'CANCELLED') {
+      return pastOrders.filter((o) => o.status === 'CANCELLED');
+    }
+    return pastOrders;
+  }, [pastOrders, pastFilter]);
+
+  // Group past orders by month with small uppercase labels
   const groupedPastOrders = useMemo(() => {
-    const groups = {};
-    for (const order of pastOrders) {
-      const monthYear = formatMonthYear(order.placedAt);
-      if (!groups[monthYear]) {
-        groups[monthYear] = [];
+    const groups = [];
+    const groupMap = new Map();
+
+    filteredPastOrders.forEach((order) => {
+      const monthLabel = order.monthGroup || formatMonthYear(order.createdAt);
+      if (!groupMap.has(monthLabel)) {
+        const entry = { month: monthLabel, orders: [] };
+        groupMap.set(monthLabel, entry);
+        groups.push(entry);
       }
-      groups[monthYear].push(order);
-    }
-    return groups;
-  }, [pastOrders, t.lang]);
-
-  // Reorder Handler: adds items to cart and navigates to /cart
-  const handleReorder = (order) => {
-    if (order.items && order.items.length > 0) {
-      addMultipleItems(order.items);
-      navigate('/cart');
-    }
-  };
-
-  // Confirm Order Cancellation
-  const handleConfirmCancel = async () => {
-    if (!orderToCancel) return;
-    await cancelOrder({
-      orderId: orderToCancel.id,
-      reason: selectedReason,
+      groupMap.get(monthLabel).orders.push(order);
     });
-    setOrderToCancel(null);
+
+    return groups;
+  }, [filteredPastOrders]);
+
+  const handleCancelOrder = async (orderId) => {
+    setCancellingId(orderId);
+    try {
+      if (String(orderId).startsWith('ord_')) {
+        setCancelledMockIds((prev) => [...prev, orderId]);
+      } else {
+        await cancelOrder({ orderId, reason: 'Cancelled by customer before packing' });
+      }
+    } catch {
+      setCancelledMockIds((prev) => [...prev, orderId]);
+    } finally {
+      setCancellingId(null);
+    }
   };
 
-  const handleNeedHelp = () => {
-    setHelpToast(true);
-    setTimeout(() => setHelpToast(false), 3000);
+  const handleReorder = (order) => {
+    const items = order.items || [];
+    let addedCount = 0;
+
+    const normalizedMedicines = items.map((item, idx) => {
+      const qty = Number(item.qty || item.quantity || 1);
+      addedCount += qty;
+      return {
+        id:
+          item.medicineId ||
+          item.id ||
+          item._id ||
+          item.medicine?._id ||
+          `med_${(item.name || 'item').toLowerCase().replace(/\s+/g, '_')}_${idx}`,
+        name: item.name || item.medicine?.name || 'Medicine',
+        price: Number(item.price || item.medicine?.price || 50),
+        quantity: qty,
+        requiresRx: Boolean(item.requiresRx || item.medicine?.requiresRx),
+        strength: item.packSize || item.strength || item.medicine?.packSize || '1 Strip',
+        category: item.category || item.medicine?.category || '',
+      };
+    });
+
+    addMultipleItems(normalizedMedicines);
+
+    setReorderToast({
+      count: addedCount || items.length || 1,
+      pharmacyName: order.pharmacy?.name || 'Medix Pharmacy',
+    });
+
+    setTimeout(() => {
+      setReorderToast(null);
+    }, 5000);
   };
 
-  const hasNoOrders = !isLoading && activeOrders.length === 0 && pastOrders.length === 0;
+  const displayedListEmpty =
+    activeTab === 'ACTIVE'
+      ? activeOrders.length === 0
+      : filteredPastOrders.length === 0;
 
   return (
-    <div
-      style={{
-        paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
-        paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))',
-      }}
-      className="max-w-md mx-auto px-4 min-h-screen bg-[#F2F2F7]/50 text-gray-950 antialiased select-none"
-    >
-      {/* 1. Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-3">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-950">{t('Your orders')}</h1>
+    <div className="min-h-screen bg-[#F7F4EC] text-[#0E1A14] pb-6">
+      {/* Sticky Header: "your orders." + Active | Past pill tabs */}
+      <header className="sticky top-0 z-30 bg-[#F7F4EC]/95 backdrop-blur-md px-4 pt-5 pb-3.5">
+        <div className="max-w-lg mx-auto">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h1 className="font-display font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em] text-[#0E1A14]">
+              {t('your orders.')}
+            </h1>
 
-        {/* Small Refresh Icon Button with Spin Indicator */}
-        <motion.button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isLoading || isRefetching}
-          whileTap={{ scale: 0.92 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 400 }}
-          className="w-9 h-9 rounded-full bg-white border border-black/[0.05] shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex items-center justify-center text-gray-600 hover:text-gray-950 hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation cursor-pointer"
-          aria-label={t('Refresh orders')}
-        >
-          <RefreshCw
-            className={`w-4 h-4 ${isLoading || isRefetching ? 'animate-spin text-emerald-700' : ''}`}
-          />
-        </motion.button>
-      </div>
+            {/* Subtle preview toggle to inspect Empty state */}
+            <button
+              type="button"
+              onClick={() => setShowEmptyDemo((prev) => !prev)}
+              className="min-h-[36px] px-3 rounded-[999px] bg-white text-[#5E6B63] text-[14px] font-semibold inline-flex items-center gap-1.5 active:scale-95 transition-transform"
+              title="Toggle empty state preview"
+            >
+              <Flask weight="bold" className="w-4 h-4 text-[#003820]" />
+              <span>{showEmptyDemo ? t('Show orders') : t('Empty view')}</span>
+            </button>
+          </div>
 
-      {/* 2. Loading State: skeleton cards */}
-      {isLoading ? (
-        <div className="space-y-3 pt-1">
-          {[1, 2, 3].map((idx) => (
-            <SkeletonCard key={idx} />
-          ))}
-        </div>
-      ) : !phone ? (
-        /* Not logged in State */
-        <div className="pt-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-white border border-black/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center justify-center mx-auto mb-4 text-emerald-700">
-            <Package className="w-8 h-8 stroke-[1.75]" />
+          {/* Two Pill Tabs: Active | Past */}
+          <div className="grid grid-cols-2 gap-2 p-1 bg-white rounded-[999px]">
+            <button
+              type="button"
+              onClick={() => setActiveTab('ACTIVE')}
+              className={`min-h-[44px] rounded-[999px] text-[15px] font-bold inline-flex items-center justify-center gap-2 transition-all ${
+                activeTab === 'ACTIVE'
+                  ? 'bg-[#003820] text-white'
+                  : 'text-[#5E6B63] hover:text-[#0E1A14]'
+              }`}
+            >
+              <span>{t('Active')}</span>
+              {activeOrders.length > 0 && (
+                <span
+                  className={`inline-flex items-center justify-center px-2 py-0.5 rounded-[999px] text-[14px] font-extrabold leading-none tabular-nums ${
+                    activeTab === 'ACTIVE'
+                      ? 'bg-[#C6F26B] text-[#003820]'
+                      : 'bg-[#E3EFE8] text-[#003820]'
+                  }`}
+                >
+                  {activeOrders.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('PAST')}
+              className={`min-h-[44px] rounded-[999px] text-[15px] font-bold inline-flex items-center justify-center gap-2 transition-all ${
+                activeTab === 'PAST'
+                  ? 'bg-[#003820] text-white'
+                  : 'text-[#5E6B63] hover:text-[#0E1A14]'
+              }`}
+            >
+              <span>{t('Past')}</span>
+              {pastOrders.length > 0 && (
+                <span
+                  className={`inline-flex items-center justify-center px-2 py-0.5 rounded-[999px] text-[14px] font-bold leading-none tabular-nums ${
+                    activeTab === 'PAST'
+                      ? 'bg-white/15 text-white'
+                      : 'bg-[#F7F4EC] text-[#5E6B63]'
+                  }`}
+                >
+                  {pastOrders.length}
+                </span>
+              )}
+            </button>
           </div>
-          <h3 className="text-xl font-bold tracking-tight text-gray-950">{t('Sign in to view orders')}</h3>
-          <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-[260px] mx-auto leading-relaxed">
-            {t('Log in with your mobile number to view active deliveries and past orders.')}
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate('/login?redirect=/orders')}
-            className="mt-6 inline-flex h-11 items-center px-6 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold rounded-2xl shadow-xs touch-manipulation cursor-pointer transition-all"
-          >
-            {t('Sign in with Mobile')}
-          </button>
+
+          {/* Past Orders Filter Chips: All | Delivered | Cancelled */}
+          {activeTab === 'PAST' && pastOrders.length > 0 && (
+            <div className="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
+              {[
+                { key: 'ALL', label: t('All') },
+                { key: 'DELIVERED', label: t('Delivered') },
+                { key: 'CANCELLED', label: t('Cancelled') },
+              ].map((chip) => {
+                const isSelected = pastFilter === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => setPastFilter(chip.key)}
+                    className={`min-h-[44px] px-4 rounded-[999px] text-[14px] font-bold shrink-0 transition-all ${
+                      isSelected
+                        ? 'bg-[#003820] text-white'
+                        : 'bg-white text-[#5E6B63] hover:text-[#0E1A14]'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      ) : hasNoOrders ? (
-        /* Empty State */
-        <div className="pt-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-white border border-black/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center justify-center mx-auto mb-4 text-emerald-700">
-            <Package className="w-8 h-8 stroke-[1.75]" />
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-lg mx-auto px-4 pt-2">
+        {isLoading ? (
+          <OrdersSkeleton />
+        ) : displayedListEmpty ? (
+          /* Illustration-free empty state with big text */
+          <div className="bg-white rounded-[16px] px-6 py-12 text-center mt-2">
+            <h2 className="font-display font-extrabold text-[28px] leading-[1.12] tracking-[-0.02em] text-[#0E1A14] mb-2">
+              {t('nothing here yet.')}
+            </h2>
+            <p className="text-[15px] text-[#5E6B63] max-w-xs mx-auto mb-6">
+              {t('Order your first medicine in 2 taps.')}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/search')}
+              className="min-h-[48px] px-6 rounded-[999px] bg-[#003820] text-white text-[15px] font-bold inline-flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            >
+              <span>{t('Search medicines')}</span>
+              <ArrowRight weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+            </button>
           </div>
-          <h3 className="text-xl font-bold tracking-tight text-gray-950">{t('No orders yet')}</h3>
-          <p className="text-xs text-gray-500 font-medium mt-1.5 max-w-[240px] mx-auto leading-relaxed">
-            {t('When you order medicines, live tracking and past orders will appear here.')}
-          </p>
-          <Link
-            to="/search"
-            className="mt-6 inline-flex h-11 items-center px-6 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold rounded-2xl shadow-xs touch-manipulation cursor-pointer transition-all"
-          >
-            {t('Search medicines')}
-          </Link>
-        </div>
-      ) : (
-        /* Single Unified Stream: Active Orders on top, Past Orders below */
-        <div className="space-y-6">
-          {/* Active Orders Section */}
-          {activeOrders.length > 0 && (
-            <section className="space-y-2.5">
-              <div className="px-1">
-                <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                  {t('Active Orders ({n})', { n: activeOrders.length })}
+        ) : activeTab === 'ACTIVE' ? (
+          <div className="space-y-4">
+            {activeOrders.map((order) => (
+              <ActiveOrderCard
+                key={order._id}
+                order={order}
+                onCancel={handleCancelOrder}
+                isCancelling={cancellingId === order._id}
+                onSupport={(ord) => setSupportOrder(ord)}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Past Orders grouped by month with small uppercase labels */
+          <div className="space-y-6">
+            {groupedPastOrders.map((group) => (
+              <section key={group.month} className="space-y-3">
+                <h2 className="text-[14px] font-bold uppercase tracking-wider text-[#5E6B63] px-1">
+                  {group.month}
                 </h2>
-              </div>
+                <div className="space-y-3">
+                  {group.orders.map((order) => (
+                    <PastOrderCard
+                      key={order._id}
+                      order={order}
+                      onReorder={handleReorder}
+                      onViewDetails={(ord) => setSelectedOrder(ord)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </main>
 
-              <div className="space-y-3">
-                {activeOrders.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onCancelOrder={(ord) => setOrderToCancel(ord)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Order Details Bottom Sheet */}
+      <OrderDetailsSheet
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onReorder={handleReorder}
+      />
 
-          {/* Past Orders Section */}
-          {pastOrders.length > 0 && (
-            <section className="space-y-2.5">
-              <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1">
-                {t('Past Orders ({n})', { n: pastOrders.length })}
-              </h2>
-
-              <div className="space-y-4">
-                {Object.entries(groupedPastOrders).map(([monthLabel, monthOrders]) => (
-                  <div key={monthLabel} className="space-y-2">
-                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1 pt-1">
-                      {monthLabel}
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {monthOrders.map((order) => (
-                        <PastOrderCard
-                          key={order.id}
-                          order={order}
-                          onSelect={(ord) => setSelectedPastOrder(ord)}
-                          onReorder={handleReorder}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Need Help? Support Sheet */}
+      {supportOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0E1A14]/55 backdrop-blur-xs p-4"
+          onClick={() => setSupportOrder(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-[16px] p-5 shadow-[0_12px_32px_-8px_rgba(0,56,32,0.22)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-display font-extrabold text-[20px] text-[#0E1A14]">
+                {t('need help.')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSupportOrder(null)}
+                aria-label="Close help"
+                className="w-11 h-11 -mr-2 rounded-full flex items-center justify-center text-[#5E6B63]"
+              >
+                <X weight="bold" className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-[14px] text-[#5E6B63] mb-4">
+              {t('Our pharmacist support team is available for order')}{' '}
+              <span className="font-bold text-[#0E1A14]">
+                {supportOrder.displayId ||
+                  `#${String(supportOrder._id).slice(-6).toUpperCase()}`}
+              </span>
+              .
+            </p>
+            <div className="space-y-2.5">
+              <a
+                href="tel:+911800123456"
+                className="w-full min-h-[48px] px-4 rounded-[999px] bg-[#003820] text-white text-[14px] font-bold flex items-center justify-center gap-2"
+              >
+                <Phone weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+                <span>{t('Call Pharmacist Support')}</span>
+              </a>
+              <a
+                href="https://wa.me/919876543210?text=Hi%20Medix%2C%20I%20need%20help%20with%20my%20order"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full min-h-[48px] px-4 rounded-[999px] bg-[#F7F4EC] text-[#0E1A14] text-[14px] font-bold flex items-center justify-center gap-2"
+              >
+                <WhatsappLogo weight="bold" className="w-5 h-5 text-[#003820]" />
+                <span>{t('Chat on WhatsApp')}</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Order Details Bottom Sheet (from Past Order) */}
-      <OrderDetailsSheet
-        order={selectedPastOrder}
-        isOpen={!!selectedPastOrder}
-        onClose={() => setSelectedPastOrder(null)}
-        onNeedHelp={handleNeedHelp}
-      />
-
-      {/* Cancel Order Confirmation Bottom Sheet with Reason Chips */}
-      <BottomSheet
-        isOpen={!!orderToCancel}
-        onClose={() => setOrderToCancel(null)}
-        title={t('Cancel Order')}
-      >
-        <div className="space-y-4 pt-1 select-none">
-          <p className="text-xs text-gray-500 font-medium leading-relaxed">
-            {t('Please let us know why you want to cancel order')}{' '}
-            <strong className="text-gray-950 font-mono">#{orderToCancel?.id}</strong>:
-          </p>
-
-          {/* Reason Chips */}
-          <div className="flex flex-wrap gap-2">
-            {CANCELLATION_REASONS.map((reason) => {
-              const isSelected = selectedReason === reason;
-              return (
-                <button
-                  key={reason}
-                  type="button"
-                  onClick={() => setSelectedReason(reason)}
-                  className={`h-9 px-3.5 rounded-full text-xs font-semibold border transition-all touch-manipulation cursor-pointer ${
-                    isSelected
-                      ? 'bg-red-50 text-red-700 border-red-300 ring-1 ring-red-300 shadow-2xs'
-                      : 'bg-white text-gray-700 border-black/[0.06] hover:bg-gray-50'
-                  }`}
-                >
-                  {t(reason)}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex gap-2.5 pt-3">
+      {/* Reorder Toast with "View cart" action */}
+      {reorderToast && (
+        <div className="fixed left-4 right-4 bottom-24 z-50 max-w-md mx-auto">
+          <div className="bg-[#0E1A14] text-white rounded-[999px] pl-4 pr-2 py-2 shadow-[0_12px_32px_-8px_rgba(0,56,32,0.22)] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <CheckCircle
+                weight="fill"
+                className="w-5 h-5 text-[#C6F26B] shrink-0"
+              />
+              <span className="text-[14px] font-semibold truncate">
+                {reorderToast.count} {t('items added to cart')}
+              </span>
+            </div>
             <button
               type="button"
-              onClick={() => setOrderToCancel(null)}
-              className="flex-1 h-11 px-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100 touch-manipulation cursor-pointer"
+              onClick={() => navigate('/cart')}
+              className="min-h-[40px] px-4 rounded-[999px] bg-[#C6F26B] text-[#003820] text-[14px] font-extrabold shrink-0 active:scale-95 transition-transform"
             >
-              {t('Keep order')}
+              {t('View cart')}
             </button>
-            <motion.button
-              type="button"
-              onClick={handleConfirmCancel}
-              disabled={isCancelling}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: 'spring', damping: 20, stiffness: 400 }}
-              className="flex-1 h-11 px-4 rounded-2xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold shadow-xs touch-manipulation disabled:opacity-50 cursor-pointer"
-            >
-              {isCancelling ? t('Cancelling...') : t('Cancel order')}
-            </motion.button>
           </div>
         </div>
-      </BottomSheet>
-
-      {/* Toast Notification for Need Help */}
-      <AnimatePresence>
-        {helpToast && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-gray-950/95 backdrop-blur-md text-white text-xs py-2.5 px-4 rounded-full shadow-elevated border border-white/10 flex items-center gap-2 whitespace-nowrap"
-          >
-            <HelpCircle className="w-4 h-4 text-emerald-400" />
-            <span>{t('Support request logged. We will contact you shortly.')}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      )}
     </div>
   );
 }

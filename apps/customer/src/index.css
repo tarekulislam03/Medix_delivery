@@ -3,29 +3,62 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Medix Brand Design Tokens */
+    --medix-green: #003820;
+    --medix-bg: #F7F4EC;
+    --medix-surface: #FFFFFF;
+    --medix-lime: #C6F26B;
+    --medix-text: #0E1A14;
+    --medix-muted: #5E6B63;
+    --medix-rx: #D64538;
+
+    /* Soft Symptom Tile Tints (Green, Lime, Cream) */
+    --medix-tint-green: #E3EFE8;
+    --medix-tint-lime: #EEF8D2;
+    --medix-tint-cream: #EFEAD8;
+
+    /* Shape & Elevation Tokens */
+    --radius-card: 16px;
+    --radius-pill: 999px;
+    --shadow-float: 0 12px 32px -8px rgba(0, 56, 32, 0.22);
+    --shadow-nav: 0 -4px 24px rgba(14, 26, 20, 0.06);
+  }
+
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+    overflow-x: clip;
+    font-size: 16px;
   }
 
   html, body {
-    font-family: "Inter Variable", "Noto Sans Bengali", system-ui, -apple-system, sans-serif;
-    overscroll-behavior: none;
+    font-family: "DM Sans", "Noto Sans Bengali", -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--medix-bg);
+    color: var(--medix-text);
+    line-height: 1.45;
+    letter-spacing: 0em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: "Plus Jakarta Sans Variable", "Inter Variable", sans-serif;
+  h1, h2, h3, h4, .font-display, .price-display {
+    font-family: "Poppins", "Noto Sans Bengali", -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.02em;
+    font-optical-sizing: auto;
   }
 
-  /* Bengali: Noto Sans Bengali leads the stack for all text */
+  /* Bengali: Noto Sans Bengali leads the stack */
   html[lang="bn"],
   html[lang="bn"] body,
+  html[lang="bn"] .font-sans {
+    font-family: "Noto Sans Bengali", "DM Sans", sans-serif;
+  }
+
   html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3,
-  html[lang="bn"] h4, html[lang="bn"] h5, html[lang="bn"] h6,
-  html[lang="bn"] .font-sans,
-  html[lang="bn"] .font-display {
-    font-family: "Noto Sans Bengali", "Inter Variable", system-ui, -apple-system, sans-serif;
+  html[lang="bn"] h4, html[lang="bn"] .font-display {
+    font-family: "Noto Sans Bengali", "Poppins", sans-serif;
   }
 
   /* Prevent iOS zoom by enforcing 16px on coarse pointers */
@@ -35,7 +68,7 @@
     }
   }
 
-  /* Native touch-action and control rules */
+  /* Instant pointer-down feedback & touch ergonomics */
   button, a, [role="button"], input[type="button"], input[type="submit"] {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -46,10 +79,33 @@
     -webkit-user-select: none;
     -webkit-touch-callout: none;
   }
+
+  /* Apple Accessibility: Reduced Motion & Reduced Transparency */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 120ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .apple-material {
+      background-color: #FFFFFF !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+  }
 }
 
 @layer utilities {
-  /* Safe area insets for notches, dynamic islands, home bars */
+  .apple-material {
+    background-color: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -63,7 +119,6 @@
     margin-top: env(safe-area-inset-top, 0px);
   }
 
-  /* Hide scrollbar */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -74,56 +129,5 @@
 
   .touch-manipulation {
     touch-action: manipulation;
-  }
-
-  /* Flat UI Elements */
-  .flat-font {
-    font-family: 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
-  }
-
-  .flat-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 6px;
-    border: 1px solid #cbd5e1;
-    background-color: #ffffff;
-    color: #1e293b;
-    cursor: pointer;
-    user-select: none;
-    transition: background-color 0.12s ease-out, transform 0.1s ease-out;
-  }
-  .flat-btn:active {
-    transform: scale(0.97);
-    background-color: #e2e8f0;
-  }
-
-  .flat-btn-primary {
-    background-color: #059669;
-    color: #ffffff;
-    border: 1px solid #047857;
-  }
-  .flat-btn-primary:active {
-    transform: scale(0.97);
-    background-color: #065f46;
-  }
-
-  .flat-tab {
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #475569;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.12s ease-out, border-color 0.12s ease-out;
-  }
-  .flat-tab.active {
-    color: #059669;
-    border-bottom: 2px solid #059669;
-    font-weight: 700;
   }
 }

@@ -9,7 +9,6 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
   const [visibleHeight, setVisibleHeight] = useState('85dvh');
   const sheetRef = useRef(null);
 
-  // Prevent background scrolling while open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -22,7 +21,6 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
     };
   }, [isOpen]);
 
-  // Mobile Keyboard Detection via Visual Viewport API
   useEffect(() => {
     if (!isOpen) return;
 
@@ -34,11 +32,9 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
       const offset = Math.max(0, windowH - vv.height);
 
       if (offset > 60) {
-        // Keyboard is active
         setKeyboardOffset(offset);
         setVisibleHeight(`${Math.max(240, Math.floor(vv.height - 16))}px`);
       } else {
-        // Keyboard closed
         setKeyboardOffset(0);
         setVisibleHeight('85dvh');
       }
@@ -60,7 +56,6 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
     };
   }, [isOpen]);
 
-  // Auto-scroll focused input into clear view above keyboard
   useEffect(() => {
     if (!isOpen) return;
 
@@ -69,9 +64,7 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
         setTimeout(() => {
           try {
             e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } catch {
-            // fallback
-          }
+          } catch {}
         }, 220);
       }
     };
@@ -85,45 +78,43 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+            className="absolute inset-0 bg-[#0E1A14]/45"
           />
 
-          {/* Sheet container */}
           <motion.div
             ref={sheetRef}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.28 }}
             style={{
               maxHeight: visibleHeight,
               marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : '0px',
               paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
-              transition: 'margin-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 -12px 36px rgba(14, 26, 20, 0.18)',
             }}
-            className="relative w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-elevated z-10 overflow-y-auto overscroll-contain"
+            className="relative w-full max-w-md bg-[#F7F4EC] text-[#0E1A14] rounded-t-[24px] sm:rounded-[24px] p-5 z-10 overflow-y-auto overscroll-contain"
           >
-            {/* Grab handle */}
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3 sm:hidden" />
+            <div className="w-10 h-1.5 bg-[#5E6B63]/30 rounded-[999px] mx-auto mb-3 sm:hidden" />
 
-            {/* Header if title present */}
             {title && (
-              <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                <h3 className="text-base font-bold text-ink">{title}</h3>
+              <div className="flex items-center justify-between pb-3 mb-3">
+                <h3 className="font-display font-extrabold text-[22px] tracking-[-0.02em] text-[#0E1A14]">
+                  {title}
+                </h3>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-w-[40px] min-h-[40px] rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 flex items-center justify-center touch-manipulation cursor-pointer transition-transform"
+                  className="w-11 h-11 rounded-[999px] bg-white active:scale-[0.94] transition-transform duration-150 flex items-center justify-center touch-manipulation cursor-pointer"
                   aria-label={t('Close')}
                 >
-                  <X className="w-4 h-4 text-gray-600" />
+                  <X className="w-5 h-5 text-[#0E1A14] stroke-[2.25]" />
                 </button>
               </div>
             )}

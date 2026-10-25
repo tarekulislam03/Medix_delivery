@@ -100,24 +100,24 @@ export default function DeliveryAddress() {
         <button
           type="button"
           onClick={handleGoBack}
-          className="w-10 h-10 rounded-full bg-gray-100/80 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center text-gray-800 transition-colors cursor-pointer touch-manipulation"
+          className="w-9 h-9 rounded-[5px] bg-white border border-[#C6C6C8] active:bg-[#E5E5EA] flex items-center justify-center text-[#000000] transition-colors cursor-pointer touch-manipulation"
           aria-label={t('Go back')}
         >
-          <ArrowLeft className="w-5 h-5 stroke-[2.25]" />
+          <ArrowLeft className="w-4 h-4 stroke-[2.25]" />
         </button>
 
-        <h1 className="text-base font-bold text-gray-950 tracking-tight">
+        <h1 className="text-base font-bold text-[#000000] tracking-tight">
           {t('Delivery Address')}
         </h1>
 
-        <div className="w-10 h-10" />
+        <div className="w-9 h-9" />
       </header>
 
       {/* Top 40% Main Content Area */}
       <main className="w-full max-w-md mx-auto px-5 pt-1 pb-4 shrink-0">
         {/* Saved Addresses Chips (if any exist) */}
         {savedAddresses.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 mb-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 mb-3">
             {savedAddresses.map((saved) => {
               const isSelected = saved.villagePo === villagePo && saved.pinCode === pinCode;
               return (
@@ -125,10 +125,10 @@ export default function DeliveryAddress() {
                   key={saved.id}
                   type="button"
                   onClick={() => handleSelectSaved(saved)}
-                  className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-semibold flex items-center justify-center transition-all active:scale-95 cursor-pointer touch-manipulation select-none ${
+                  className={`shrink-0 h-8 px-3 rounded-[5px] border text-xs font-bold flex items-center justify-center transition-colors cursor-pointer touch-manipulation select-none ${
                     isSelected
-                      ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-[#047857] border-[#065F46] text-white'
+                      : 'bg-white border-[#C6C6C8] text-[#000000] active:bg-[#E5E5EA]'
                   }`}
                 >
                   <span className="truncate max-w-[150px]">{saved.villagePo}</span>

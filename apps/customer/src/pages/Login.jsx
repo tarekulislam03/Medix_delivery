@@ -142,23 +142,23 @@ export default function Login() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-full bg-gray-100/80 hover:bg-gray-200 active:bg-gray-300 flex items-center justify-center text-gray-800 transition-colors cursor-pointer touch-manipulation"
+          className="w-9 h-9 rounded-[5px] bg-white border border-[#C6C6C8] active:bg-[#E5E5EA] flex items-center justify-center text-[#000000] transition-colors cursor-pointer touch-manipulation"
           aria-label={t('Go back')}
         >
-          <ArrowLeft className="w-5 h-5 stroke-[2.25]" />
+          <ArrowLeft className="w-4 h-4 stroke-[2.25]" />
         </button>
 
-        <h1 className="text-base font-bold text-gray-950 tracking-tight">
+        <h1 className="text-base font-bold text-[#000000] tracking-tight">
           {mode === 'login' ? t('Sign In') : t('Create Account')}
         </h1>
 
-        <div className="w-10 h-10" />
+        <div className="w-9 h-9" />
       </header>
 
       {/* Top 30% Area: Minimal Form Controls Directly on Flat Canvas */}
       <main className="w-full max-w-md mx-auto px-5 pt-2 pb-4 shrink-0">
-        {/* Apple Segmented Switcher */}
-        <div className="relative flex items-center p-1 bg-gray-100 rounded-full mb-4">
+        {/* Classic Native Segmented Switcher */}
+        <div className="relative flex items-center p-[2px] bg-[#E5E5EA] border border-[#C6C6C8]/80 rounded-[6px] mb-4">
           <button
             type="button"
             onClick={() => {
@@ -166,17 +166,10 @@ export default function Login() {
               setError('');
               setAccountNotFoundPhone(null);
             }}
-            className={`relative flex-1 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors duration-150 z-10 active:scale-95 touch-manipulation cursor-pointer select-none ${
-              mode === 'login' ? 'text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-900'
+            className={`relative flex-1 h-8 rounded-[4px] flex items-center justify-center text-xs font-semibold transition-colors duration-150 z-10 touch-manipulation cursor-pointer select-none ${
+              mode === 'login' ? 'bg-white text-[#000000] font-bold shadow-2xs' : 'text-[#3C3C43]'
             }`}
           >
-            {mode === 'login' && (
-              <motion.span
-                layoutId="apple-auth-segment"
-                transition={{ type: 'spring', damping: 28, stiffness: 360 }}
-                className="absolute inset-0 bg-white rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.06)] z-0"
-              />
-            )}
             <span className="relative z-10">{t('Sign In')}</span>
           </button>
 
@@ -187,17 +180,10 @@ export default function Login() {
               setError('');
               setAccountNotFoundPhone(null);
             }}
-            className={`relative flex-1 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors duration-150 z-10 active:scale-95 touch-manipulation cursor-pointer select-none ${
-              mode === 'register' ? 'text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-900'
+            className={`relative flex-1 h-8 rounded-[4px] flex items-center justify-center text-xs font-semibold transition-colors duration-150 z-10 touch-manipulation cursor-pointer select-none ${
+              mode === 'register' ? 'bg-white text-[#000000] font-bold shadow-2xs' : 'text-[#3C3C43]'
             }`}
           >
-            {mode === 'register' && (
-              <motion.span
-                layoutId="apple-auth-segment"
-                transition={{ type: 'spring', damping: 28, stiffness: 360 }}
-                className="absolute inset-0 bg-white rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.06)] z-0"
-              />
-            )}
             <span className="relative z-10">{t('Create Account')}</span>
           </button>
         </div>

@@ -54,11 +54,14 @@ export function translate(lang, text, vars) {
 export const formatNum = (lang, value) =>
   lang === 'bn' ? toBnDigits(value) : String(value);
 
-/** React hook: const t = useT(); t('Search'); t.num(5) */
+/** React hook: const t = useT(); t('Search'); t.num(5) — also supports destructuring { t, lang, setLang } */
 export function useT() {
   const lang = useLangStore((s) => s.lang);
+  const setLang = useLangStore((s) => s.setLang);
   const t = (text, vars) => translate(lang, text, vars);
   t.num = (value) => formatNum(lang, value);
   t.lang = lang;
+  t.setLang = setLang;
+  t.t = t;
   return t;
 }
