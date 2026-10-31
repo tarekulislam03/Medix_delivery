@@ -46,6 +46,25 @@ export const BN = {
   'item': 'টি আইটেম',
   'items': 'টি আইটেম',
 
+  // PWA & Installation
+  'Install Medix App': 'মেডিক্স অ্যাপ ইন্সটল করুন',
+  'Install App': 'অ্যাপ ইন্সটল করুন',
+  'Install Medix Web App': 'মেডিক্স ওয়েব অ্যাপ ইন্সটল করুন',
+  'Fast 20-min medicine delivery at your fingertips': 'আপনার হাতের কাছেই ২০ মিনিটে ওষুধ ডেলিভারি',
+  'Install our app for a faster, smoother experience and instant order alerts.': 'দ্রুততর অভিজ্ঞতা ও তাত্ক্ষণিক অর্ডার আপডেটের জন্য আমাদের অ্যাপটি ইন্সটল করুন।',
+  '20-min lightning delivery in Dhaka': 'ঢাকায় ২০ মিনিটে দ্রুত ডেলিভারি',
+  'Instant order & prescription status alerts': 'তাৎক্ষণিক অর্ডার ও প্রেসক্রিপশন আপডেট',
+  '1-Tap quick access from your Home Screen': 'হোম স্ক্রিন থেকে ১-ট্যাপে সরাসরি অ্যাক্সেস',
+  'Maybe later': 'পরে করব',
+  'Got it': 'বুঝেছি',
+  'Installed': 'ইন্সটল করা হয়েছে',
+  'Tap Share button in Safari': 'সাফারির নিচে শেয়ার (Share) আইকনে ট্যাপ করুন',
+  'Select "Add to Home Screen"': '"Add to Home Screen" বেছে নিন',
+  'Enable Delivery Notifications': 'ডেলিভারি নোটিফিকেশন চালু করুন',
+  'Order updates enabled': 'অর্ডার আপডেট চালু আছে',
+  'Install Web App': 'ওয়েব অ্যাপ ইন্সটল করুন',
+  'Installed as App': 'অ্যাপ হিসেবে ইন্সটল করা',
+
   // Prescription card & Direct Order
   'Order on call': 'কলে অর্ডার',
   'Order on Call': 'কলে অর্ডার',

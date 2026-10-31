@@ -23,8 +23,10 @@ import {
   Trash,
   Plus,
   User,
+  DeviceMobile,
 } from '@phosphor-icons/react';
 import { useUserStore } from '../store/userStore';
+import { usePWAStore } from '../store/pwaStore';
 import api from '../lib/api';
 import { useT } from '../lib/i18n';
 import {
@@ -137,6 +139,10 @@ export default function Account() {
   // Saved addresses & prescriptions state
   const [addresses, setAddresses] = useState(MOCK_SAVED_ADDRESSES);
   const [prescriptions] = useState(MOCK_PRESCRIPTIONS);
+
+  // PWA install state
+  const isStandalone = usePWAStore((s) => s.isStandalone);
+  const promptInstall = usePWAStore((s) => s.promptInstall);
 
   // Active sheet/modal state:
   // 'EDIT_PROFILE' | 'ADDRESSES' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'PAYMENT' | 'FAQS' | 'REPORT' | 'TERMS' | 'PRIVACY' | 'LICENCE' | 'DELETE_ACCOUNT' | 'LOGOUT_CONFIRM' | null
@@ -379,6 +385,13 @@ export default function Account() {
             label={t('Default payment')}
             value="COD"
             onClick={() => setActiveSheet('PAYMENT')}
+          />
+          <SettingsRow
+            icon={DeviceMobile}
+            label={t('Install Web App')}
+            value={isStandalone ? t('Installed') : undefined}
+            badge={isStandalone ? t('Installed') : undefined}
+            onClick={() => promptInstall()}
             isLast
           />
         </SettingsGroup>

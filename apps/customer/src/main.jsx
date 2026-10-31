@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { registerSW } from 'virtual:pwa-register';
 
 import "@fontsource/noto-sans-bengali/400.css";
 import "@fontsource/noto-sans-bengali/500.css";
@@ -10,6 +11,9 @@ import "@fontsource/noto-sans-bengali/700.css";
 
 import App from './App';
 import './index.css';
+
+// Register PWA service worker with immediate check
+registerSW({ immediate: true });
 
 const queryClient = new QueryClient();
 
