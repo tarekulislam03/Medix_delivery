@@ -56,6 +56,7 @@ export default function Cart() {
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
   const [isConfirmOrderSheetOpen, setIsConfirmOrderSheetOpen] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState(null);
   const [selectedPharmacy, setSelectedPharmacy] = useState(PARTNER_PHARMACIES[0]);
   const [isPharmacySheetOpen, setIsPharmacySheetOpen] = useState(false);
 
@@ -105,6 +106,7 @@ export default function Cart() {
   const bill = useMemo(() => calcBill(subtotal), [subtotal]);
 
   const handlePlaceOrderClick = () => {
+    setOrderError(null);
     if (!bill.canOrder) return;
 
     if (!address || !villagePo) {
@@ -113,7 +115,7 @@ export default function Cart() {
     }
 
     if (!phone) {
-      navigate('/login?redirect=/cart');
+      navigate('/address?redirect=/cart');
       return;
     }
 
@@ -122,19 +124,14 @@ export default function Cart() {
 
   const handleAddressSaved = () => {
     setIsAddressSheetOpen(false);
-    if (!phone) {
-      setTimeout(() => {
-        navigate('/login?redirect=/cart');
-      }, 250);
-    } else {
-      setTimeout(() => {
-        setIsConfirmOrderSheetOpen(true);
-      }, 250);
-    }
+    setTimeout(() => {
+      setIsConfirmOrderSheetOpen(true);
+    }, 250);
   };
 
   const handleConfirmAndPlaceOrder = async () => {
     setIsSubmittingOrder(true);
+    setOrderError(null);
 
     const orderPayload = {
       customerName: fullName || 'Customer',
@@ -169,28 +166,33 @@ export default function Cart() {
 
     try {
       const res = await api.post('/orders', orderPayload);
-      if (res?.data?.success && res?.data?.order) {
-        const createdOrder = res.data.order;
+      const createdOrder = res?.data?.order || res?.data?.data;
+      if (res?.data?.success && createdOrder) {
+        const orderToPass = {
+          ...createdOrder,
+          id: createdOrder.id || createdOrder.orderNumber || createdOrder.orderId || createdOrder._id,
+        };
 
         queryClient.invalidateQueries({ queryKey: ['orders'] });
 
         setIsSubmittingOrder(false);
         setIsConfirmOrderSheetOpen(false);
+        setOrderError(null);
         clearCart();
         navigate('/order-success', {
           state: {
-            order: createdOrder,
+            order: orderToPass,
             payload: orderPayload,
           },
         });
         return;
       }
-      throw new Error(res?.data?.message || 'Failed to place order');
+      throw new Error(res?.data?.error?.message || res?.data?.message || 'Failed to place order');
     } catch (err) {
       console.error('Backend order placement error:', err);
-      const msg = err.response?.data?.message || err.message || t('Could not place order. Please try again.');
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('Could not place order. Please try again.');
       setIsSubmittingOrder(false);
-      alert(msg);
+      setOrderError(msg);
     }
   };
 
@@ -226,7 +228,7 @@ export default function Cart() {
               {t('your cart is empty.')}
             </h2>
             <p className="text-[15px] text-[#5E6B63] max-w-[260px] mx-auto leading-relaxed">
-              {t('Add fever, cold, or daily medicines and get them in 20 minutes.')}
+              {t('Add fever, cold, or daily medicines and get them within 24 hours.')}
             </p>
             <Link
               to="/search"
@@ -296,7 +298,9 @@ export default function Cart() {
           <div className="bg-white rounded-[16px] divide-y divide-[#F7F4EC] overflow-hidden">
             {/* Row 1: Deliver to */}
             <div
-              onClick={() => navigate('/address?redirect=/cart')}
+              onClick={() => {
+                navigate('/address?redirect=/cart');
+              }}
               className="min-h-[68px] p-4 flex items-center justify-between cursor-pointer active:bg-[#F7F4EC] touch-manipulation transition-colors select-none"
             >
               <div className="flex items-center gap-3.5 min-w-0 pr-2">
@@ -304,13 +308,19 @@ export default function Cart() {
                 <div className="min-w-0">
                   <p className="text-[14px] font-medium text-[#5E6B63]">{t('Deliver to')}</p>
                   <p className="text-[15px] font-bold text-[#0E1A14] truncate mt-0.5 select-text">
-                    {address || <span className="text-[#003820]">{t('Select delivery address')}</span>}
+                    {!phone ? (
+                      <span className="text-[#D64538] font-semibold">{t('No address added · Tap to sign in')}</span>
+                    ) : (
+                      (villagePo || address) || (
+                        <span className="text-[#D64538] font-semibold">{t('No address added · Tap to add')}</span>
+                      )
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 text-[14px] font-bold text-[#003820] shrink-0">
-                <span>{t('Change')}</span>
+                <span>{!phone || (!villagePo && !address) ? t('Add') : t('Change')}</span>
                 <ChevronRight className="w-4 h-4 stroke-[2.25]" />
               </div>
             </div>
@@ -398,7 +408,10 @@ export default function Cart() {
 
       <ConfirmOrderSheet
         isOpen={isConfirmOrderSheetOpen}
-        onClose={() => setIsConfirmOrderSheetOpen(false)}
+        onClose={() => {
+          setIsConfirmOrderSheetOpen(false);
+          setOrderError(null);
+        }}
         onConfirm={handleConfirmAndPlaceOrder}
         onChangeAddress={() => navigate('/address?redirect=/cart')}
         fullName={fullName}
@@ -411,6 +424,7 @@ export default function Cart() {
         itemsCount={items.length}
         totalUnits={totalUnits}
         isSubmitting={isSubmittingOrder}
+        errorMessage={orderError}
       />
 
       <BottomSheet

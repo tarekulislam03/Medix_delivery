@@ -253,10 +253,7 @@ export function ActiveOrderCard({
   const statusConfig = ORDER_STATUSES[order.status] || ORDER_STATUSES.PLACED;
   const canCancel = statusConfig.stepIndex < 2; // Only before Packed (SEARCHING, PLACED, CONFIRMED)
 
-  const etaMinutes = order.etaMinutes || (order.status === 'OUT_FOR_DELIVERY' ? 14 : 18);
-  const etaHeadline = order.rxUnderReview
-    ? t('Arriving in 18 min')
-    : `${t('Arriving in')} ${etaMinutes} ${t('min')}`;
+  const etaHeadline = t('Arriving within 24 hrs');
 
   const partner = order.deliveryPartner || {
     name: 'Rahul Verma',

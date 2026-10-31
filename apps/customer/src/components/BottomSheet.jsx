@@ -2,9 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useT } from '../lib/i18n';
+import { useUiStore } from '../store/uiStore';
 
 export default function BottomSheet({ isOpen, onClose, title, children }) {
   const t = useT();
+  const setBottomNavHidden = useUiStore((state) => state.setBottomNavHidden);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [visibleHeight, setVisibleHeight] = useState('85dvh');
   const sheetRef = useRef(null);
@@ -12,14 +14,17 @@ export default function BottomSheet({ isOpen, onClose, title, children }) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      setBottomNavHidden(true);
     } else {
       document.body.style.overflow = '';
       setKeyboardOffset(0);
+      setBottomNavHidden(false);
     }
     return () => {
       document.body.style.overflow = '';
+      setBottomNavHidden(false);
     };
-  }, [isOpen]);
+  }, [isOpen, setBottomNavHidden]);
 
   useEffect(() => {
     if (!isOpen) return;

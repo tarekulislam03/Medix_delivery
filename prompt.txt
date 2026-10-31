@@ -1,82 +1,67 @@
-Design the Orders page and Account page for the Medix medicine delivery app
-(mobile-first, React). Use the existing Medix design tokens: deep green #003820,
-warm off-white #F7F4EC, lime accent #C6F26B (highlights only), text #0E1A14,
-muted #5E6B63, alert #D64538. Poppins 700/800 for headings and prices (tight
-tracking), DM Sans for body. Cards 16px radius, buttons and chips fully rounded,
-soft shadows only on floating elements, no borders on every card. One icon set
-(Phosphor Bold), consistent weight. Headings end with the brand full stop,
-e.g. "your orders." and "account.". Keep existing logic and API calls unchanged.
+Build a production-grade backend for a medicine delivery app (rural India users). Stack: Node.js, Express, MongoDB (Mongoose), Socket.io, JWT. Use clean modular structure (routes / controllers / services / models / middleware / sockets), async/await, centralized error handling, and env-based config.
 
-=== ORDERS PAGE ===
+SCOPE (customer side only): accounts, carts, order history, active orders. Plus the order pipeline to the admin panel.
 
-Header: "your orders." with two pill tabs: Active | Past. Default to Active if
-one exists, otherwise Past.
+1. AUTH: MOBILE NUMBER + OTP
+- POST /auth/send-otp { phone } and POST /auth/verify-otp { phone, otp }.
+- Normalize phone to E.164 (+91). Validate strictly.
+- OTP: 6 digits, hashed (bcrypt or HMAC) before storing, TTL 5 min (Mongo TTL index), max 5 verify attempts, 30s resend cooldown, rate limit per phone and per IP.
+- SMS behind a provider interface (stub it for dev; log OTP to console in development only) so MSG91/Twilio/Fast2SMS can be plugged in.
+- Login and signup are the same flow. On successful verify:
+  - If no user exists with this phone, create it with isNewUser = true.
+  - If the user exists, update lastLoginAt.
+  - Return { accessToken (15 min), refreshToken (30 days, rotated, stored hashed), user, isNewUser, message }.
+- Messages in the response:
+  - New user: "Welcome to <AppName>! Your medicines, delivered to your doorstep." with a short description.
+  - Existing user: "We miss you!" plus a short description (e.g. "Your cart and past orders are right where you left them.").
+- Set a hasSeenWelcome flag so the welcome shows only once. Existing users get the "miss you" message on each fresh login.
+- POST /auth/refresh, POST /auth/logout (revoke refresh token).
+- Auth middleware verifies JWT and attaches req.user. Use the same JWT to authenticate Socket.io connections.
 
-ACTIVE ORDER (hero card, deep green background, white text, lime accents)
-- Big ETA: "Arriving in 14 min" (Poppins 800, 28px) with order ID and item count.
-- Vertical timeline with 5 steps: Order placed -> Pharmacy confirmed -> Packed ->
-  Out for delivery -> Delivered.
-  - Done steps: filled lime dot + solid line, with timestamp.
-  - Current step: larger pulsing lime dot, bold label, one-line status
-    ("Rahul is on the way").
-  - Upcoming steps: hollow muted dot, dashed line.
-- Delivery partner row: name, rating, a round Call button, and a 4-digit
-  delivery OTP shown in a lime pill.
-- If a prescription is needed: extra state "Prescription under review" with an
-  Rx badge, before Pharmacy confirmed.
-- Collapsible "View items & bill" section below the timeline.
-- Secondary actions: "Need help?" and "Cancel order" (only before Packed, as a
-  quiet text button with a confirm dialog).
+2. CUSTOMER ACCOUNT
+- User: phone (unique, indexed), name, saved addresses (village, landmark, pincode, optional geo point), defaultAddressId, createdAt, lastLoginAt, isNewUser, hasSeenWelcome.
+- GET/PATCH /me, CRUD for /me/addresses.
 
-PAST ORDERS (list)
-- Filter chips: All, Delivered, Cancelled.
-- Group by month with small uppercase labels.
-- Each card: pharmacy name, date and time, first 2 medicine names + "+3 more",
-  total paid, status tag (Delivered = green, Cancelled = red, small and quiet).
-- Primary action: "Reorder" button (deep green, full pill) which adds all items
-  to the cart and shows a toast with a "View cart" action.
-- Secondary: "View details" opens a bottom sheet with the full timeline
-  (compact), itemised bill, payment method, and "Download invoice".
-- Show small pack thumbnails (up to 3, overlapping circles) on each card.
+3. CART
+- One cart per user, stored in MongoDB, linked to the user's phone/userId.
+- A cart item is either a catalog medicine (productId, qty, price snapshot) or an uploaded item (prescription photo / medicine strip photo, with image URL and note).
+- Endpoints: GET /cart, PUT /cart/items (add/update/remove), DELETE /cart. All writes idempotent and atomic ($set / $inc / arrayFilters, no read-modify-write races).
+- Recompute totals server-side. Never trust client prices.
+- Cart persists across devices and is restored automatically after login.
 
-Empty states: a friendly illustration-free layout with big text:
-"nothing here yet." + "Order your first medicine in 2 taps." + CTA to Search.
-Loading: skeleton cards, not spinners.
+4. ORDERS
+- Order types: catalog order, prescription-photo order, strip-photo order, or mixed.
+- POST /orders converts the cart to an order inside a Mongo transaction: snapshot items, prices, address, and customer phone, generate a human-friendly orderNumber, clear the cart. Support an Idempotency-Key header so double taps never create duplicate orders.
+- Status flow: PLACED -> CONFIRMED (admin reviewed / prescription verified) -> PACKED -> OUT_FOR_DELIVERY -> DELIVERED, plus CANCELLED / REJECTED. Allow only valid transitions. Keep a statusHistory array with timestamps and actor.
+- Prescription / strip orders may start with unpriced items: admin sets final prices after review, and the order moves to AWAITING_CUSTOMER_CONFIRMATION when the total changes. Customer accepts or cancels.
+- Customer endpoints:
+  - GET /orders/active (statuses not DELIVERED / CANCELLED / REJECTED)
+  - GET /orders/history (paginated, cursor-based, newest first)
+  - GET /orders/:id
+  - POST /orders/:id/cancel (only before PACKED)
+- Indexes: { userId, createdAt: -1 }, { userId, status }, { status, createdAt } for the admin queue.
 
-=== ACCOUNT PAGE ===
+5. IMAGE UPLOADS
+- POST /uploads (multipart): accept jpg/png/webp only, size limit, magic-byte check, compress/resize server-side (sharp). Store through a storage interface (local disk for dev, S3/Cloudinary-compatible for prod). Return the URL for use in cart/order items.
 
-Top: green header block with a large initial avatar (lime circle, deep green
-letter), name, phone number, and a small "Edit" pill. No stock stats row.
+6. SOCKET.IO (LIVE UPDATES, NO POLLING)
+- Authenticate on handshake with the JWT.
+- Rooms: user:<userId> for customers, admins for the admin panel, order:<orderId> for tracking.
+- Events to customer: order:created, order:status_changed, order:price_updated, order:eta_updated.
+- Events to admin room: order:new (full order payload), order:updated, order:cancelled_by_customer.
+- Emit from the service layer after the DB commit succeeds, never before.
+- On reconnect, the client can request missed state via GET /orders/active, so sockets are an optimization and REST stays the source of truth.
+- Include a Redis adapter hook (optional via env) for horizontal scaling.
 
-Sections (grouped list cards, not one long flat list; label each group in small
-uppercase):
-1. MY STUFF: Saved addresses (with a Home/Work tag and default marker),
-   Prescriptions (uploaded Rx with expiry/verified state), Order history.
-2. PREFERENCES: Language (EN / বাংলা / हिन्दी), Notifications toggles
-   (order updates, offers, refill reminders), Default payment (COD for now).
-3. HELP: Order on call, WhatsApp support, FAQs, Report a problem.
-4. LEGAL: Terms, Privacy, Licence info (pharmacy drug licence number is
-   visible for trust).
-5. Footer actions: Log out (quiet text button), Delete account (small, red,
-   confirm dialog with typed confirmation). App version at the bottom.
+7. ADMIN PANEL HANDOFF
+- Admin-only endpoints (role-based middleware): GET /admin/orders (filter by status, date, search by phone/orderNumber, paginated), GET /admin/orders/:id, PATCH /admin/orders/:id/status, PATCH /admin/orders/:id/pricing.
+- New orders show up in the admin panel instantly via the socket event, with a lean payload (id, orderNumber, customer name/phone, item count, type, total, createdAt) and full details fetched on open.
 
-Row style: icon left (no tinted square backgrounds), label, optional muted value
-on the right, chevron. 56px min row height. Dividers inset, not full width.
+8. QUALITY / PERFORMANCE
+- Input validation on every route (zod or Joi), helmet, CORS allowlist, rate limiting, compression, request logging (pino), health check endpoint.
+- Use .lean() for read queries, project only the needed fields, and keep all list endpoints paginated.
+- Consistent response format: { success, data, error: { code, message } }.
+- Graceful shutdown, Mongo connection pooling, and env validation at startup.
+- Provide: folder structure, all models with indexes, a .env.example, a seed script (sample medicines + an admin user), and a Postman/Thunder collection or an OpenAPI file.
 
-Add one lime highlight card near the top: "Refer a friend, get ₹50 off" with a
-copy-link button. It must be dismissible.
-
-=== SHARED RULES ===
-- Bottom nav matches the rest of the app: deep green active state with a small
-  lime dot, Orders tab shows a dot (not a number) when an order is active.
-- Min 14px text, 4.5:1 contrast, 44px tap targets, support Bengali text without
-  layout breaks.
-- Motion: timeline dot pulse, bottom sheet slide-up, 150ms press scale. Nothing
-  flashy.
-- Microcopy: friendly and direct ("Your order is packed. Rider's on the way.").
-
-OUTPUT
-Give me the production-ready React components for OrdersPage (with ActiveOrderCard,
-Timeline, PastOrderCard, OrderDetailsSheet) and AccountPage (with SettingsGroup,
-SettingsRow), plus any new CSS variables. Use realistic mock data in one file so I
-can preview it before wiring the API.
+Deliver the complete working code, file by file, with brief comments only where logic is non-obvious.

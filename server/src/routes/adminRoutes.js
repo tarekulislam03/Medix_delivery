@@ -4,6 +4,17 @@ import Order from '../models/Order.js';
 import Pharmacy from '../models/Pharmacy.js';
 import Rider from '../models/Rider.js';
 import User from '../models/User.js';
+import {
+  getAdminOrders,
+  getAdminOrderById,
+  updateAdminOrderStatus,
+  updateAdminOrderPricing,
+} from '../controllers/adminController.js';
+import { validate } from '../middleware/validate.js';
+import {
+  updateOrderStatusSchema,
+  updateOrderPricingSchema,
+} from '../validation/orderSchemas.js';
 
 const router = express.Router();
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
@@ -398,5 +409,10 @@ router.delete('/riders/:id', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// Production Admin Endpoints per spec
+router.get('/orders/:id', getAdminOrderById);
+router.patch('/orders/:id/status', validate(updateOrderStatusSchema), updateAdminOrderStatus);
+router.patch('/orders/:id/pricing', validate(updateOrderPricingSchema), updateAdminOrderPricing);
 
 export default router;

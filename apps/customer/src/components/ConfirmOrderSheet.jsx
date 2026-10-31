@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, User, CreditCard, ChevronRight, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { MapPin, Phone, User, CreditCard, ChevronRight, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomSheet from './BottomSheet';
 import { formatPrice } from '../lib/fees';
@@ -20,15 +20,16 @@ export default function ConfirmOrderSheet({
   itemsCount = 1,
   totalUnits = 1,
   isSubmitting = false,
+  errorMessage = null,
 }) {
   const t = useT();
   const [isSwiping, setIsSwiping] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !isSubmitting) {
       setIsSwiping(false);
     }
-  }, [isOpen]);
+  }, [isOpen, isSubmitting]);
 
   const handleClick = () => {
     if (isSwiping || isSubmitting) return;
@@ -115,6 +116,13 @@ export default function ConfirmOrderSheet({
           </span>
         </div>
 
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <div className="p-3.5 rounded-[14px] bg-red-50 border border-red-200 text-red-700 text-[13.5px] font-medium leading-snug">
+            {errorMessage}
+          </div>
+        )}
+
         {/* Confirm Order Button */}
         <div className="pt-1">
           <button
@@ -131,10 +139,8 @@ export default function ConfirmOrderSheet({
             />
 
             <div className="relative z-10 flex items-center gap-2.5">
-              {isSubmitting ? (
+              {isSubmitting && (
                 <Loader2 className="w-5 h-5 animate-spin text-[#C6F26B]" />
-              ) : (
-                <Check className="w-5 h-5 stroke-[2.8] text-[#C6F26B]" />
               )}
               <span>
                 {isSubmitting
@@ -145,9 +151,12 @@ export default function ConfirmOrderSheet({
               </span>
             </div>
 
-            <div className="relative z-10 min-h-[42px] px-4 rounded-[999px] bg-[#C6F26B] text-[#0E1A14] flex items-center gap-1.5 tabular-nums text-[15px] font-display font-bold">
-              <span>{formatPrice(bill?.total || 0)}</span>
-              {!isSubmitting && <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
+            <div className="relative z-10 w-10 h-10 rounded-full bg-[#C6F26B] text-[#0E1A14] flex items-center justify-center shrink-0">
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#0E1A14]" />
+              ) : (
+                <ArrowRight className="w-4 h-4 stroke-[2.6]" />
+              )}
             </div>
           </button>
         </div>

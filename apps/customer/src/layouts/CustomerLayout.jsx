@@ -4,7 +4,7 @@ import BottomNav from '../components/BottomNav';
 
 export default function CustomerLayout() {
   const location = useLocation();
-  const hideOn = ['/order-success', '/login', '/address'];
+  const hideOn = ['/order-success', '/login', '/address', '/search'];
   const shouldHideBars = hideOn.includes(location.pathname);
 
   return (

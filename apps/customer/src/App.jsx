@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import CustomerLayout from './layouts/CustomerLayout';
 
 // Eagerly import all primary tabs so they load into memory at startup
+import Home from './pages/Home';
 import Search from './pages/Search';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders';
@@ -10,29 +11,38 @@ import Account from './pages/Account';
 import Login from './pages/Login';
 import DeliveryAddress from './pages/DeliveryAddress';
 import OrderSuccess from './pages/OrderSuccess';
+import LandingPage from './pages/LandingPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import RiderDashboard from './pages/rider/RiderDashboard';
 import PharmacyDashboard from './pages/pharmacy/PharmacyDashboard';
 
 import { useUserStore } from './store/userStore';
 import { useCartStore } from './store/cartStore';
+import { useLocationStore } from './store/locationStore';
 
 export default function App() {
   const phone = useUserStore((state) => state.phone);
   const loadCartFromDb = useCartStore((state) => state.loadCartFromDb);
+  const fetchAddresses = useLocationStore((state) => state.fetchAddresses);
+  const clearAddresses = useLocationStore((state) => state.clearAddresses);
 
-  // Restore saved active cart from MongoDB on startup if phone exists
+  // Restore saved active cart & addresses from MongoDB on startup if phone exists
   useEffect(() => {
-    if (phone) {
+    const hasToken = Boolean(localStorage.getItem('medix_customer_token'));
+    if (phone && hasToken) {
       loadCartFromDb(phone);
+      fetchAddresses();
+    } else if (!phone) {
+      clearAddresses();
     }
-  }, [phone, loadCartFromDb]);
+  }, [phone, loadCartFromDb, fetchAddresses, clearAddresses]);
 
   return (
     <Routes>
       <Route path="/" element={<CustomerLayout />}>
-        {/* Default route redirects / to /search */}
-        <Route index element={<Navigate to="/search" replace />} />
+        {/* Main Home Screen at / */}
+        <Route index element={<Home />} />
+        <Route path="home" element={<Navigate to="/" replace />} />
         <Route path="search" element={<Search />} />
         <Route path="cart" element={<Cart />} />
         <Route path="orders" element={<Orders />} />
@@ -41,6 +51,11 @@ export default function App() {
 
       {/* Dedicated Animated Order Placed Page */}
       <Route path="order-success" element={<OrderSuccess />} />
+
+      {/* Dedicated Launch & WhatsApp Orders Landing Page */}
+      <Route path="landing-page" element={<LandingPage />} />
+      <Route path="launch" element={<Navigate to="/landing-page" replace />} />
+      <Route path="preorder" element={<Navigate to="/landing-page" replace />} />
 
       {/* Dedicated Sign In / Create Account Page */}
       <Route path="login" element={<Login />} />

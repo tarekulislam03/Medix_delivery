@@ -51,17 +51,65 @@ const POPULAR_KEYWORDS = [
   'liv 52', 'cremaffin', 'cypon', 'duphaston', 'evion', 'limcee', 'glynase'
 ];
 
+function parseCSV(content) {
+  const clean = content.replace(/^\uFEFF/, '').trim();
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    const cols = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        cols.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    cols.push(current.trim());
+
+    if (cols.length >= 4) {
+      const [id, name, mrpStr, category, sourcesStr] = cols;
+      rows.push({
+        id: id.trim(),
+        name: name.trim(),
+        mrp: parseFloat(mrpStr) || 50,
+        category: (category || 'General Healthcare').trim(),
+        sources: sourcesStr
+          ? sourcesStr
+              .replace(/"/g, '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+      });
+    }
+  }
+  return rows;
+}
+
 async function seed() {
   try {
     console.log(`Connecting to MongoDB at ${MONGO_URI}...`);
     await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB.');
 
-    const dataPath = path.join(__dirname, '../data/cleaned_medicines.json');
-    const rawData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    console.log(`Loaded ${rawData.length} medicines from ${dataPath}.`);
+    const csvPath = path.join(__dirname, '../data/final_medicines.csv');
+    const jsonPath = path.join(__dirname, '../data/cleaned_medicines.json');
 
-    // Prepare batch documents
+    console.log(`Reading medicine list from ${csvPath}...`);
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    const rawData = parseCSV(csvContent);
+    console.log(`Parsed ${rawData.length} medicines from final_medicines.csv.`);
+
+    // Prepare documents
     const docs = rawData.map((item) => {
       const lower = item.name.toLowerCase();
       const rank = top20RankMap[lower];
@@ -75,9 +123,14 @@ async function seed() {
         strength = `${match[0].toUpperCase()} · ${item.category}`;
       }
 
+      const slugBase = item.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
       return {
         name: item.name,
-        slug: item.slug || item.id,
+        slug: `${slugBase}-${item.id}`,
         price: item.mrp && item.mrp > 0 ? item.mrp : 50,
         category: item.category,
         strength: strength,
@@ -85,14 +138,18 @@ async function seed() {
         trendingRank: rank || 9999,
         requiresRx: ['Tablets', 'Capsules', 'Injections', 'Inhalers & Sprays'].includes(item.category),
         sources: item.sources || [],
-        rawVariants: item.rawVariants || [],
+        rawVariants: [item.name],
       };
     });
 
-    console.log('Clearing existing medicines in database...');
+    // Save JSON backup in sync
+    fs.writeFileSync(jsonPath, JSON.stringify(docs, null, 2), 'utf-8');
+    console.log(`Updated JSON snapshot at ${jsonPath}.`);
+
+    console.log('Clearing existing medicines in MongoDB collection...');
     await Medicine.deleteMany({});
 
-    console.log(`Inserting ${docs.length} medicines into collection...`);
+    console.log(`Inserting ${docs.length} medicines into MongoDB collection...`);
     const chunkSize = 1000;
     for (let i = 0; i < docs.length; i += chunkSize) {
       const chunk = docs.slice(i, i + chunkSize);
@@ -102,10 +159,11 @@ async function seed() {
 
     const count = await Medicine.countDocuments();
     const top20Count = await Medicine.countDocuments({ trendingRank: { $lte: 20 } });
-    console.log(`Successfully seeded ${count} medicines! (${top20Count} top India trending assigned ranks 1-20)`);
+    console.log(`Successfully seeded ${count} medicines from final_medicines.csv!`);
+    console.log(`(${top20Count} top India trending medicines assigned ranks 1-20)`);
 
     await mongoose.disconnect();
-    console.log('Done!');
+    console.log('Finished seeding successfully.');
   } catch (err) {
     console.error('Seeding error:', err);
     process.exit(1);

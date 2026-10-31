@@ -1,31 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Search as SearchIcon, MapPin, ChevronDown, User, Zap } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { Search as SearchIcon, MapPin, ChevronDown, ShoppingCart, Zap } from 'lucide-react';
 import { useLocationStore } from '../store/locationStore';
-import { useUserStore } from '../store/userStore';
-import { useOrders } from '../lib/useOrders';
-import { ACTIVE_STATUS_KEYS } from '../lib/orderStatus';
+import { useCartStore } from '../store/cartStore';
 import { useT } from '../lib/i18n';
+import LanguageSwitcher from './LanguageSwitcher';
 
-/**
- * Phosphor Icons — Bell (Bold weight, 20px)
- */
-function PhosphorBellBold({ className = 'w-[20px] h-[20px]' }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 256 256"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M225.29,165.93C216.61,151,212,129.57,212,104a84,84,0,0,0-168,0c0,25.58-4.59,47-13.27,61.93A20.08,20.08,0,0,0,30.66,186,19.77,19.77,0,0,0,48,196H84.18a44,44,0,0,0,87.64,0H208a19.77,19.77,0,0,0,17.31-10A20.08,20.08,0,0,0,225.29,165.93ZM128,212a20,20,0,0,1-19.6-16h39.2A20,20,0,0,1,128,212ZM54.66,172c9.39-18.32,13.34-42.6,13.34-68a60,60,0,0,1,120,0c0,25.38,4,49.68,13.34,68Z" />
-    </svg>
-  );
-}
+const ROTATING_WORDS = ['product', 'medicine', 'category'];
 
 export default function SearchBar({ onOpenSearch, onOpenLocation }) {
   const t = useT();
@@ -33,22 +15,21 @@ export default function SearchBar({ onOpenSearch, onOpenLocation }) {
 
   const address = useLocationStore((state) => state.address);
   const villagePo = useLocationStore((state) => state.villagePo);
-  const locationFullName = useLocationStore((state) => state.fullName);
 
-  const phone = useUserStore((state) => state.phone);
-  const name = useUserStore((state) => state.name);
-
-  const { orders } = useOrders();
-  const hasUnreadOrderUpdates =
-    Boolean(phone) &&
-    Array.isArray(orders) &&
-    orders.some((o) => ACTIVE_STATUS_KEYS.includes(o.status));
-
-  const isLoggedIn = Boolean(phone);
-  const userInitial = (name || locationFullName || 'M').trim().charAt(0).toUpperCase();
-  const displayLocation = villagePo || address || 'Nababpur Paschim para';
+  const totalCartItems = useCartStore((state) => state.getTotalItems());
+  const displayLocation = villagePo || address || t('No address added');
 
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Rotating placeholder word: product -> medicine -> category -> product ...
+  const reduceMotion = useReducedMotion();
+  const [wordIndex, setWordIndex] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setWordIndex((i) => (i + 1) % ROTATING_WORDS.length);
+    }, 2200);
+    return () => clearInterval(id);
+  }, []);
   const { scrollY } = useScroll();
 
   // Smoothly fade and translate the location row out as the header collapses on scroll
@@ -67,7 +48,7 @@ export default function SearchBar({ onOpenSearch, onOpenLocation }) {
 
   return (
     <>
-      {/* 1. Sticky Top Row (height 56px, padding 16px horizontal, safe-area-inset-top respected) */}
+      {/* 1. Sticky Top Row: Logo on Left, Language Changer & Account on Right */}
       <header
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
@@ -81,53 +62,40 @@ export default function SearchBar({ onOpenSearch, onOpenLocation }) {
           isScrolled ? 'shadow-[0_6px_20px_rgba(0,56,32,0.22)]' : ''
         }`}
       >
-        <div className="max-w-md mx-auto h-[56px] px-[16px] grid grid-cols-[1fr_auto_1fr] items-center">
-          {/* Left: 40px round button (44px tap target), lime #C6F26B bg, deep green initial in Poppins 700 or user icon */}
+        <div className="max-w-md mx-auto h-[56px] px-[16px] flex items-center justify-between gap-3">
+          {/* Left: "medix." Logo Wordmark */}
           <button
             type="button"
-            onClick={() => navigate('/account')}
-            aria-label="Account"
-            className="justify-self-start p-[2px] -m-[2px] min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-[999px] cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
-          >
-            <span className="w-[40px] h-[40px] rounded-[999px] bg-[#C6F26B] text-[#003820] flex items-center justify-center">
-              {isLoggedIn ? (
-                <span className="font-display font-bold text-[16px] leading-none text-[#003820]">
-                  {userInitial}
-                </span>
-              ) : (
-                <User className="w-[20px] h-[20px] stroke-[2.4] text-[#003820]" />
-              )}
-            </span>
-          </button>
-
-          {/* Center: "medix." wordmark (always perfectly centered via 1fr auto 1fr grid) */}
-          <button
-            type="button"
-            onClick={() => navigate('/search')}
-            className="min-h-[44px] px-2 font-display font-extrabold text-[30px] leading-none tracking-[-0.03em] text-white flex items-center justify-center cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
+            onClick={() => navigate('/')}
+            className="font-display font-extrabold text-[28px] sm:text-[30px] leading-none tracking-[-0.03em] text-white flex items-center cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.96]"
             aria-label="medix home"
           >
             <span>medix</span>
             <span className="text-[#C6F26B]">.</span>
           </button>
 
-          {/* Right: 40px round button (44px tap target), rgba(255,255,255,0.12) bg, Phosphor Bold 20px Bell + optional 8px lime dot */}
-          <button
-            type="button"
-            onClick={() => navigate('/orders')}
-            aria-label="Notifications"
-            className="justify-self-end p-[2px] -m-[2px] min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-[999px] cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
-          >
-            <span
-              style={{ backgroundColor: 'rgba(255, 255, 255, 0.12)' }}
-              className="w-[40px] h-[40px] rounded-[999px] text-white flex items-center justify-center relative"
+          {/* Right: Language Changer & Cart Button */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="dark" />
+
+            {/* Cart Button */}
+            <button
+              type="button"
+              onClick={() => navigate('/cart')}
+              aria-label={t('View Cart')}
+              className="p-[2px] -m-[2px] min-w-[42px] min-h-[42px] inline-flex items-center justify-center rounded-[999px] cursor-pointer touch-manipulation transition-transform duration-150 active:scale-[0.94]"
             >
-              <PhosphorBellBold className="w-[20px] h-[20px] text-white" />
-              {hasUnreadOrderUpdates && (
-                <span className="absolute top-[7px] right-[7px] w-[8px] h-[8px] rounded-[999px] bg-[#C6F26B]" />
-              )}
-            </span>
-          </button>
+              <span className="w-[38px] h-[38px] rounded-[999px] bg-white/12 text-white flex items-center justify-center relative shadow-xs">
+                <ShoppingCart className="w-[19px] h-[19px] stroke-[2.2] text-white" />
+                {totalCartItems > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#C6F26B] text-[#003820] text-[11px] font-bold font-mono flex items-center justify-center shadow-xs">
+                    {totalCartItems}
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -165,10 +133,10 @@ export default function SearchBar({ onOpenSearch, onOpenLocation }) {
                 <ChevronDown className="w-4 h-4 text-[#C6F26B] stroke-[2.4] shrink-0" />
               </div>
 
-              {/* Right: pill with lime 1px outline, bolt icon and "20 min" in lime, 13px, Poppins 600 */}
+              {/* Right: pill with lime 1px outline, bolt icon and "24 hrs" in lime, 13px, Poppins 600 */}
               <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-[999px] border border-[#C6F26B] font-display font-semibold text-[13px] leading-none text-[#C6F26B]">
                 <Zap className="w-3.5 h-3.5 text-[#C6F26B] fill-[#C6F26B] shrink-0" />
-                <span>20 min</span>
+                <span>24 hrs</span>
               </span>
             </button>
           </motion.div>
@@ -186,8 +154,22 @@ export default function SearchBar({ onOpenSearch, onOpenLocation }) {
             aria-label={t('Search medicines and healthcare products')}
           >
             <SearchIcon className="w-5 h-5 text-[#003820] stroke-[2.4] shrink-0" />
-            <span className="text-[15px] font-medium text-[#5E6B63] flex-1 truncate">
-              {t('Search Dolo 650, Pan 40, fever, cough...')}
+            <span className="text-[15px] font-medium text-[#5E6B63] flex-1 flex items-center gap-1 overflow-hidden whitespace-nowrap">
+              <span>{t('Search the')}</span>
+              <span className="relative inline-block h-[22px] overflow-hidden align-middle">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={ROTATING_WORDS[wordIndex]}
+                    initial={reduceMotion ? { opacity: 0 } : { y: 18, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={reduceMotion ? { opacity: 0 } : { y: -18, opacity: 0 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className="inline-block leading-[22px] text-[#003820] font-semibold"
+                  >
+                    {t(ROTATING_WORDS[wordIndex])}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
             </span>
           </button>
         </div>

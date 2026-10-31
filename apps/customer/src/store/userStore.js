@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useLocationStore } from './locationStore';
 
 export const useUserStore = create(
   persist(
@@ -21,6 +22,11 @@ export const useUserStore = create(
           isVerified: Boolean(user?.isVerified ?? true),
           userId: user?.id || user?._id || get().userId,
         });
+
+        // Sync addresses from DB
+        try {
+          useLocationStore.getState().fetchAddresses();
+        } catch {}
       },
 
       setUser: ({ name, phone, isVerified = true, userId = null, token = null }) => {
@@ -39,11 +45,17 @@ export const useUserStore = create(
       logout: () => {
         localStorage.removeItem('medix_customer_token');
         set({ name: '', phone: '', isVerified: false, userId: null, token: '' });
+        try {
+          useLocationStore.getState().clearAddresses();
+        } catch {}
       },
 
       clearUser: () => {
         localStorage.removeItem('medix_customer_token');
         set({ name: '', phone: '', isVerified: false, userId: null, token: '' });
+        try {
+          useLocationStore.getState().clearAddresses();
+        } catch {}
       },
     }),
     {

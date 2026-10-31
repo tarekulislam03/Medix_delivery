@@ -58,6 +58,8 @@ export default function ElasticScroll({
   footer,
   disabled = false,
   className = '',
+  contentClassName = '',
+  footerClassName = 'w-full',
 }) {
   const containerRef = useRef(null);
   const y = useMotionValue(0);
@@ -103,6 +105,7 @@ export default function ElasticScroll({
       active: false,
       isHorizontal: false,
       directionLocked: false,
+      inHorizontal: false,
       startX: 0,
       startY: 0,
       lastY: 0,
@@ -160,9 +163,18 @@ export default function ElasticScroll({
 
       const currentOffset = y.get();
 
+      // Check if touch originated inside a horizontally scrolling element (catalog, carousels)
+      const target = e.target;
+      const inHorizontal = Boolean(
+        target &&
+        typeof target.closest === 'function' &&
+        target.closest('[data-horizontal-scroll], .overflow-x-auto, [data-scroll-container]')
+      );
+
       gesture.active = true;
       gesture.isHorizontal = false;
       gesture.directionLocked = false;
+      gesture.inHorizontal = inHorizontal;
       gesture.startX = touch.clientX;
       gesture.startY = touch.clientY;
       gesture.lastY = touch.clientY;
@@ -218,7 +230,12 @@ export default function ElasticScroll({
           return;
         }
         gesture.directionLocked = true;
-        if (Math.abs(stepDx) > Math.abs(stepDyFromStart) * 1.15) {
+        // If inside a horizontal scroll container, yield immediately to horizontal scrolling
+        const threshold = gesture.inHorizontal ? 0.6 : 1.15;
+        if (
+          Math.abs(stepDx) > Math.abs(stepDyFromStart) * threshold ||
+          (gesture.inHorizontal && Math.abs(stepDx) >= 2)
+        ) {
           gesture.isHorizontal = true;
           return;
         }
@@ -397,7 +414,7 @@ export default function ElasticScroll({
           y,
           willChange: 'transform',
         }}
-        className="w-full"
+        className={`w-full ${contentClassName}`}
       >
         {children}
 
@@ -408,7 +425,7 @@ export default function ElasticScroll({
               opacity: footerOpacity,
               y: footerTranslateY,
             }}
-            className="w-full"
+            className={footerClassName}
           >
             {footer !== undefined ? footer : defaultFooter}
           </motion.div>

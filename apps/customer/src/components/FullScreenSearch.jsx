@@ -176,7 +176,7 @@ export default function FullScreenSearch({ isOpen, onClose, initialQuery = '' })
             {isTyping ? `${t.num(medicines.length)} results.` : 'essential medicines.'}
           </h3>
           <span className="text-[14px] text-[#5E6B63] font-medium">
-            {isTyping ? t('Verified stock') : t('20-min delivery')}
+            {isTyping ? t('Verified stock') : t('24-hr delivery')}
           </span>
         </div>
 

@@ -22,6 +22,7 @@ import {
   SignOut,
   Trash,
   Plus,
+  User,
 } from '@phosphor-icons/react';
 import { useUserStore } from '../store/userStore';
 import api from '../lib/api';
@@ -112,19 +113,12 @@ export function SettingsRow({
 export default function Account() {
   const { t, lang, setLang } = useT();
   const navigate = useNavigate();
-  const { name: storedName, phone: storedPhone, token, setUser, setAuth, logout } = useUserStore();
-  const user = storedName || storedPhone ? { name: storedName, phone: storedPhone } : null;
+  const { name: storedName, phone: storedPhone, setUser, logout } = useUserStore();
+  const isAuthenticated = Boolean(storedPhone);
 
-  // Display user (real logged-in user or realistic preview profile)
-  const [localProfile, setLocalProfile] = useState({
-    name: storedName || 'Tarekul Islam',
-    phone: storedPhone ? `+91 ${storedPhone}` : '+91 98304 21890',
-    address: 'Flat 4B, Shantiniketan Apt, Salt Lake Sector II',
-  });
-
-  const displayName = storedName || localProfile.name;
-  const displayPhone = storedPhone ? `+91 ${storedPhone}` : localProfile.phone;
-  const initialLetter = (displayName || 'M').trim().charAt(0).toUpperCase();
+  const displayName = isAuthenticated ? (storedName || t('Customer')) : '';
+  const displayPhone = isAuthenticated ? `+91 ${storedPhone}` : '';
+  const initialLetter = (displayName || 'C').trim().charAt(0).toUpperCase();
 
   // Dismissible lime referral card state
   const [referralDismissed, setReferralDismissed] = useState(false);
@@ -145,24 +139,13 @@ export default function Account() {
   const [prescriptions] = useState(MOCK_PRESCRIPTIONS);
 
   // Active sheet/modal state:
-  // 'EDIT_PROFILE' | 'AUTH' | 'ADDRESSES' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'PAYMENT' | 'FAQS' | 'REPORT' | 'TERMS' | 'PRIVACY' | 'LICENCE' | 'DELETE_ACCOUNT' | null
+  // 'EDIT_PROFILE' | 'ADDRESSES' | 'PRESCRIPTIONS' | 'NOTIFICATIONS' | 'PAYMENT' | 'FAQS' | 'REPORT' | 'TERMS' | 'PRIVACY' | 'LICENCE' | 'DELETE_ACCOUNT' | 'LOGOUT_CONFIRM' | null
   const [activeSheet, setActiveSheet] = useState(null);
 
   // Edit profile form
-  const [editName, setEditName] = useState(displayName);
-  const [editPhone, setEditPhone] = useState(displayPhone);
+  const [editName, setEditName] = useState(storedName || '');
+  const [editPhone, setEditPhone] = useState(storedPhone || '');
   const [savingProfile, setSavingProfile] = useState(false);
-
-  // Auth form (for signing in / registering with live backend)
-  const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({
-    name: '',
-    phone: '',
-    password: '',
-    address: '',
-  });
-  const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
 
   // Report problem state
   const [reportText, setReportText] = useState('');
@@ -193,60 +176,16 @@ export default function Account() {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      if (token) {
-        const res = await api.put('/auth/profile', {
-          name: editName.trim(),
-          address: localProfile.address,
-        });
-        setAuth({ user: res.data, token });
-      } else {
-        setUser({
-          name: editName.trim() || localProfile.name,
-          phone: editPhone.trim() || localProfile.phone,
-        });
-      }
-      setLocalProfile((prev) => ({
-        ...prev,
-        name: editName.trim() || prev.name,
-        phone: editPhone.trim() || prev.phone,
-      }));
-      setActiveSheet(null);
-    } catch {
+      const cleanPhone = editPhone.replace(/\D/g, '').slice(-10);
       setUser({
-        name: editName.trim() || localProfile.name,
-        phone: editPhone.trim() || localProfile.phone,
+        name: editName.trim(),
+        phone: cleanPhone || storedPhone,
       });
-      setLocalProfile((prev) => ({
-        ...prev,
-        name: editName.trim() || prev.name,
-        phone: editPhone.trim() || prev.phone,
-      }));
-      setActiveSheet(null);
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-    try {
-      const endpoint = authMode === 'login' ? '/auth/login' : '/auth/register';
-      const payload =
-        authMode === 'login'
-          ? { phone: authForm.phone, password: authForm.password }
-          : { ...authForm, role: 'CUSTOMER' };
-      const res = await api.post(endpoint, payload);
-      setAuth({ user: res.data.user, token: res.data.token });
       setActiveSheet(null);
     } catch (err) {
-      setAuthError(
-        err.response?.data?.message ||
-          t('Could not sign in. Please check your credentials.')
-      );
+      console.error('Failed to update profile:', err);
     } finally {
-      setAuthLoading(false);
+      setSavingProfile(false);
     }
   };
 
@@ -263,47 +202,64 @@ export default function Account() {
             <h1 className="font-display font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em] text-white">
               {t('account.')}
             </h1>
+          </div>
 
-            {!user && (
+          {isAuthenticated ? (
+            /* Logged-In User Profile Card */
+            <div className="flex items-center justify-between gap-3.5">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-16 h-16 rounded-full bg-[#C6F26B] text-[#003820] font-display font-extrabold text-[26px] flex items-center justify-center shrink-0">
+                  {initialLetter}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display font-bold text-[20px] text-white leading-tight truncate">
+                    {displayName}
+                  </h2>
+                  <p className="text-[15px] text-white/80 tabular-nums mt-0.5 truncate">
+                    {displayPhone}
+                  </p>
+                </div>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setActiveSheet('AUTH')}
-                className="min-h-[38px] px-3.5 rounded-[999px] bg-white/12 text-[#C6F26B] text-[14px] font-bold active:scale-95 transition-transform"
+                onClick={() => {
+                  setEditName(displayName);
+                  setEditPhone(storedPhone);
+                  setActiveSheet('EDIT_PROFILE');
+                }}
+                className="min-h-[44px] px-4 rounded-[999px] bg-white/12 text-white text-[14px] font-bold inline-flex items-center gap-1.5 shrink-0 active:scale-95 transition-transform cursor-pointer"
+              >
+                <PencilSimple weight="bold" className="w-4 h-4 text-[#C6F26B]" />
+                <span>{t('Edit')}</span>
+              </button>
+            </div>
+          ) : (
+            /* Logged-Out / Guest State */
+            <div className="flex items-center justify-between gap-3.5 bg-white/10 p-3.5 rounded-[18px] border border-white/10">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-white/15 text-white flex items-center justify-center shrink-0">
+                  <User weight="bold" className="w-6 h-6 text-[#C6F26B]" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display font-bold text-[17px] text-white leading-tight">
+                    {t('Guest Customer')}
+                  </h2>
+                  <p className="text-[12px] text-white/75 mt-0.5 leading-snug">
+                    {t('Sign in to view orders & saved addresses')}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/login?redirect=/account')}
+                className="min-h-[40px] px-4 rounded-[999px] bg-[#C6F26B] text-[#003820] text-[13px] font-display font-bold inline-flex items-center shrink-0 active:scale-95 transition-transform shadow-xs cursor-pointer touch-manipulation"
               >
                 {t('Sign in')}
               </button>
-            )}
-          </div>
-
-          {/* Large Initial Avatar (lime circle, deep green letter), Name, Phone, and small "Edit" pill */}
-          <div className="flex items-center justify-between gap-3.5">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-16 h-16 rounded-full bg-[#C6F26B] text-[#003820] font-display font-extrabold text-[26px] flex items-center justify-center shrink-0">
-                {initialLetter}
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-display font-bold text-[20px] text-white leading-tight truncate">
-                  {displayName}
-                </h2>
-                <p className="text-[15px] text-white/80 tabular-nums mt-0.5 truncate">
-                  {displayPhone}
-                </p>
-              </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setEditName(displayName);
-                setEditPhone(displayPhone);
-                setActiveSheet('EDIT_PROFILE');
-              }}
-              className="min-h-[44px] px-4 rounded-[999px] bg-white/12 text-white text-[14px] font-bold inline-flex items-center gap-1.5 shrink-0 active:scale-95 transition-transform"
-            >
-              <PencilSimple weight="bold" className="w-4 h-4 text-[#C6F26B]" />
-              <span>{t('Edit')}</span>
-            </button>
-          </div>
+          )}
         </div>
       </header>
 
@@ -326,7 +282,7 @@ export default function Account() {
                 {t('Refer a friend, get ₹50 off')}
               </p>
               <p className="text-[14px] text-[#003820]/85 mt-0.5 mb-3">
-                {t('Your friend gets ₹50 off their first 20-minute medicine delivery too.')}
+                {t('Your friend gets ₹50 off their first medicine delivery too.')}
               </p>
             </div>
 
@@ -430,6 +386,12 @@ export default function Account() {
         {/* 3. HELP */}
         <SettingsGroup title={t('HELP')}>
           <SettingsRow
+            icon={Certificate}
+            label={t('Launch Details & Offers')}
+            value="15 Dec 2026"
+            onClick={() => navigate('/landing-page')}
+          />
+          <SettingsRow
             icon={PhoneCall}
             label={t('Order on call')}
             value="1800-123-456"
@@ -487,32 +449,32 @@ export default function Account() {
           />
         </SettingsGroup>
 
-        {/* 5. Footer Actions: Log out (quiet text button), Delete account (small, red, behind confirm dialog with typed confirmation), app version */}
-        <footer className="pt-2 pb-4 text-center space-y-2">
-          <div className="flex items-center justify-center gap-6">
-            <button
-              type="button"
-              onClick={() => {
-                if (user) logout();
-              }}
-              className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-2 text-[15px] font-bold text-[#5E6B63] hover:text-[#0E1A14] active:scale-95 transition-transform"
-            >
-              <SignOut weight="bold" className="w-4 h-4" />
-              <span>{t('Log out')}</span>
-            </button>
+        {/* 5. Footer Actions: Log out, Delete account (only when authenticated) */}
+        <footer className="pt-2 pb-4 text-center space-y-3">
+          {isAuthenticated && (
+            <div className="flex items-center justify-center gap-6">
+              <button
+                type="button"
+                onClick={() => setActiveSheet('LOGOUT_CONFIRM')}
+                className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-2 text-[15px] font-bold text-[#5E6B63] hover:text-[#0E1A14] active:scale-95 transition-transform cursor-pointer touch-manipulation"
+              >
+                <SignOut weight="bold" className="w-4 h-4" />
+                <span>{t('Log out')}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteConfirmText('');
-                setActiveSheet('DELETE_ACCOUNT');
-              }}
-              className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-1.5 text-[14px] font-bold text-[#D64538] active:scale-95 transition-transform"
-            >
-              <Trash weight="bold" className="w-4 h-4" />
-              <span>{t('Delete account')}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmText('');
+                  setActiveSheet('DELETE_ACCOUNT');
+                }}
+                className="min-h-[44px] px-4 rounded-[999px] inline-flex items-center gap-1.5 text-[14px] font-bold text-[#D64538] active:scale-95 transition-transform cursor-pointer touch-manipulation"
+              >
+                <Trash weight="bold" className="w-4 h-4" />
+                <span>{t('Delete account')}</span>
+              </button>
+            </div>
+          )}
 
           <p className="text-[14px] text-[#5E6B63] tabular-nums">
             medix. v2.4.0 · DL {PHARMACY_LICENCE_NO}
@@ -939,7 +901,7 @@ export default function Account() {
                     </>
                   ) : activeSheet === 'TERMS' ? (
                     <p className="text-[#5E6B63]">
-                      Medix connects you with licensed neighbourhood pharmacies for 20-minute doorstep delivery. Orders may be cancelled free of charge before they are packed by the partner pharmacy.
+                      Medix connects you with licensed neighbourhood pharmacies for doorstep delivery within 24 hours. Orders may be cancelled free of charge before they are packed by the partner pharmacy.
                     </p>
                   ) : (
                     <p className="text-[#5E6B63]">
@@ -1004,87 +966,48 @@ export default function Account() {
               </div>
             )}
 
-            {/* AUTH SIGN IN / REGISTER SHEET */}
-            {activeSheet === 'AUTH' && (
-              <form onSubmit={handleAuthSubmit} className="space-y-4">
+            {/* LOGOUT CONFIRMATION POPUP */}
+            {activeSheet === 'LOGOUT_CONFIRM' && (
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-display font-extrabold text-[22px] text-[#0E1A14]">
-                    {authMode === 'login' ? t('sign in.') : t('create account.')}
+                  <h3 className="font-display font-extrabold text-[22px] tracking-[-0.02em] text-[#0E1A14]">
+                    {t('log out.')}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setActiveSheet(null)}
-                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center"
+                    className="w-11 h-11 rounded-full bg-[#F7F4EC] flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+                    aria-label={t('Cancel')}
                   >
                     <X weight="bold" className="w-5 h-5" />
                   </button>
                 </div>
 
-                {authError && (
-                  <p className="p-3 rounded-[12px] bg-[#D64538]/10 text-[#D64538] text-[14px] font-semibold">
-                    {authError}
-                  </p>
-                )}
+                <p className="text-[15px] text-[#5E6B63] leading-relaxed">
+                  {t('Are you sure you want to log out of your Medix account?')}
+                </p>
 
-                {authMode === 'register' && (
-                  <input
-                    type="text"
-                    required
-                    placeholder={t('Full name')}
-                    value={authForm.name}
-                    onChange={(e) =>
-                      setAuthForm({ ...authForm, name: e.target.value })
-                    }
-                    className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
-                  />
-                )}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet(null)}
+                    className="flex-1 min-h-[48px] rounded-[999px] bg-[#F7F4EC] hover:bg-[#EFEAD8] text-[#0E1A14] text-[15px] font-display font-bold active:scale-98 transition-transform cursor-pointer touch-manipulation"
+                  >
+                    {t('Cancel')}
+                  </button>
 
-                <input
-                  type="tel"
-                  required
-                  placeholder={t('Phone number')}
-                  value={authForm.phone}
-                  onChange={(e) =>
-                    setAuthForm({ ...authForm, phone: e.target.value })
-                  }
-                  className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
-                />
-
-                <input
-                  type="password"
-                  required
-                  placeholder={t('Password')}
-                  value={authForm.password}
-                  onChange={(e) =>
-                    setAuthForm({ ...authForm, password: e.target.value })
-                  }
-                  className="w-full min-h-[48px] px-4 rounded-[16px] bg-[#F7F4EC] text-[16px] text-[#0E1A14]"
-                />
-
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full min-h-[48px] rounded-[999px] bg-[#003820] text-white text-[15px] font-bold"
-                >
-                  {authLoading
-                    ? t('Please wait...')
-                    : authMode === 'login'
-                    ? t('Sign in')
-                    : t('Create account')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAuthMode(authMode === 'login' ? 'register' : 'login')
-                  }
-                  className="w-full min-h-[44px] text-[14px] font-bold text-[#003820]"
-                >
-                  {authMode === 'login'
-                    ? t('New to Medix? Create an account')
-                    : t('Already have an account? Sign in')}
-                </button>
-              </form>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setActiveSheet(null);
+                    }}
+                    className="flex-1 min-h-[48px] rounded-[999px] bg-[#D64538] hover:bg-[#b9382c] text-white text-[15px] font-display font-bold active:scale-98 transition-transform cursor-pointer touch-manipulation shadow-xs"
+                  >
+                    {t('Log out')}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

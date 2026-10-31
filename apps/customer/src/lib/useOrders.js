@@ -20,8 +20,16 @@ export function useOrders() {
         if (phone) params.phone = phone;
 
         const res = await api.get('/orders', { params });
-        if (res?.data?.success && Array.isArray(res?.data?.orders)) {
-          return res.data.orders;
+        const list = res?.data?.orders || res?.data?.data;
+        if (res?.data?.success && Array.isArray(list)) {
+          return list.map((o) => ({
+            ...o,
+            id: o.orderNumber || o.orderId || o.id || o._id,
+            displayId: o.displayId || o.orderNumber || o.orderId || `#${String(o._id || '').slice(-6).toUpperCase()}`,
+            totalAmount: o.totalAmount || o.bill?.total || 0,
+            deliveryFee: o.deliveryFee ?? o.bill?.delivery ?? 0,
+            subtotal: o.subtotal || o.bill?.subtotal || 0,
+          }));
         }
       } catch (err) {
         console.warn('Could not fetch orders from DB:', err.message);

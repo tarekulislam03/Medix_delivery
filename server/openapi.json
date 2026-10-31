@@ -1,0 +1,521 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Medix Medicine Delivery API",
+    "description": "Production-grade backend API for medicine delivery application optimized for rural India. Includes mobile OTP authentication, cart persistence, transaction-safe order placement with idempotency, image upload compression, real-time Socket.io events, and admin order management.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "15-minute JWT Access Token passed in Authorization: Bearer <token>"
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": { "type": "object", "nullable": true },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        },
+        "required": ["success"]
+      },
+      "SendOtpRequest": {
+        "type": "object",
+        "required": ["phone"],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "example": "9876543210",
+            "description": "10-digit Indian mobile number or E.164 (+91XXXXXXXXXX)"
+          }
+        }
+      },
+      "VerifyOtpRequest": {
+        "type": "object",
+        "required": ["phone", "otp"],
+        "properties": {
+          "phone": { "type": "string", "example": "9876543210" },
+          "otp": { "type": "string", "example": "123456", "minLength": 6, "maxLength": 6 }
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": {
+          "refreshToken": { "type": "string" }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "label": { "type": "string", "example": "Home" },
+          "fullName": { "type": "string", "example": "Ramesh Mondal" },
+          "phone": { "type": "string", "example": "+919800000001" },
+          "villagePo": { "type": "string", "example": "Kalinagar Village, Near Primary School" },
+          "landmark": { "type": "string", "example": "Opposite Shani Mandir" },
+          "pinCode": { "type": "string", "example": "743442" },
+          "isDefault": { "type": "boolean", "default": false },
+          "geo": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["Point"] },
+              "coordinates": { "type": "array", "items": { "type": "number" }, "example": [88.8542, 22.3841] }
+            }
+          }
+        }
+      },
+      "CartItem": {
+        "type": "object",
+        "properties": {
+          "itemType": { "type": "string", "enum": ["catalog", "prescription", "strip"] },
+          "productId": { "type": "string", "nullable": true },
+          "name": { "type": "string" },
+          "price": { "type": "number" },
+          "quantity": { "type": "integer", "minimum": 0 },
+          "image": { "type": "string", "nullable": true },
+          "note": { "type": "string", "nullable": true },
+          "unpriced": { "type": "boolean" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "orderNumber": { "type": "string", "example": "MDX-261026-ABCD" },
+          "orderType": { "type": "string", "enum": ["catalog", "prescription", "strip", "mixed"] },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLACED",
+              "CONFIRMED",
+              "PACKED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED",
+              "REJECTED",
+              "AWAITING_CUSTOMER_CONFIRMATION"
+            ]
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CartItem" } },
+          "bill": {
+            "type": "object",
+            "properties": {
+              "itemsTotal": { "type": "number" },
+              "deliveryCharge": { "type": "number" },
+              "packagingCharge": { "type": "number" },
+              "discount": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          },
+          "deliveryAddress": { "$ref": "#/components/schemas/Address" },
+          "statusHistory": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "status": { "type": "string" },
+                "actor": { "type": "string" },
+                "note": { "type": "string" },
+                "timestamp": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns status, uptime, and database connection state",
+        "responses": {
+          "200": {
+            "description": "Backend is healthy",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } }
+          }
+        }
+      }
+    },
+    "/auth/send-otp": {
+      "post": {
+        "summary": "Send OTP to mobile number",
+        "description": "Normalizes phone to E.164 (+91), generates 6-digit OTP with 5-minute TTL, checks 30s resend cooldown, and dispatches SMS.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SendOtpRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP successfully dispatched",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } }
+          },
+          "429": { "description": "Rate limit or 30-second cooldown active" }
+        }
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "summary": "Verify OTP and login / signup",
+        "description": "Verifies 6-digit OTP (max 5 attempts). Creates new user if non-existent or returns existing user with contextual welcome or miss-you message.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VerifyOtpRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated successfully, returns accessToken and refreshToken",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } }
+          },
+          "400": { "description": "Invalid or expired OTP" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh token & issue new access token",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Tokens successfully rotated" },
+          "401": { "description": "Invalid or revoked refresh token" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Logout user and revoke refresh token",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Successfully logged out" }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User profile data" }
+        }
+      },
+      "patch": {
+        "summary": "Update user name or default address",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "defaultAddressId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated" }
+        }
+      }
+    },
+    "/me/addresses": {
+      "get": {
+        "summary": "Get saved addresses",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of saved addresses" }
+        }
+      },
+      "post": {
+        "summary": "Add a new delivery address",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Address" } } }
+        },
+        "responses": {
+          "201": { "description": "Address created and added to user" }
+        }
+      }
+    },
+    "/me/addresses/{id}": {
+      "patch": {
+        "summary": "Update an existing address",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Address updated" } }
+      },
+      "delete": {
+        "summary": "Delete a saved address",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Address deleted" } }
+      }
+    },
+    "/cart": {
+      "get": {
+        "summary": "Fetch user persistent cart",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current cart with server-calculated totals" }
+        }
+      },
+      "delete": {
+        "summary": "Clear user cart",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Cart cleared" }
+        }
+      }
+    },
+    "/cart/items": {
+      "put": {
+        "summary": "Add, update quantity, or remove item from cart",
+        "description": "Atomic item updates ($set / $pull). If quantity is 0, item is automatically removed. Totals recomputed server-side.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CartItem" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated cart" }
+        }
+      }
+    },
+    "/orders": {
+      "post": {
+        "summary": "Convert cart to order inside a Mongo transaction",
+        "description": "Snapshots items, addresses, prices. Supports Idempotency-Key header to prevent duplicate orders on double taps. Emits Socket.io order:new to admin panel.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Client-generated unique UUID to prevent double submissions"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addressId": { "type": "string" },
+                  "deliveryAddress": { "$ref": "#/components/schemas/Address" },
+                  "paymentMethod": { "type": "string", "enum": ["COD", "ONLINE", "UPI"], "default": "COD" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Order created successfully" },
+          "400": { "description": "Cart is empty or missing address" }
+        }
+      }
+    },
+    "/orders/active": {
+      "get": {
+        "summary": "Get customer active orders",
+        "description": "Returns all non-finalized orders (statuses other than DELIVERED, CANCELLED, REJECTED). Used for initial sync and reconnects.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of active orders" }
+        }
+      }
+    },
+    "/orders/history": {
+      "get": {
+        "summary": "Get customer past orders (paginated)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of orders" }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "summary": "Get order details by ID or orderNumber",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Order details" }
+        }
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "summary": "Cancel order (Customer)",
+        "description": "Allowed only when order status is PLACED, CONFIRMED, or AWAITING_CUSTOMER_CONFIRMATION (before PACKED).",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "reason": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Order cancelled" },
+          "400": { "description": "Cannot cancel after order is PACKED" }
+        }
+      }
+    },
+    "/orders/{id}/confirm-price": {
+      "post": {
+        "summary": "Accept or decline admin pricing for prescription order",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["accept"],
+                "properties": {
+                  "accept": { "type": "boolean" },
+                  "rejectionReason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Pricing decision processed" }
+        }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "summary": "Upload and optimize prescription or medicine strip image",
+        "description": "Validates magic bytes, restricts to JPG/PNG/WebP, compresses and resizes to max 1920x1920 WebP with Sharp.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Image compressed, returns URL" }
+        }
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "summary": "Admin: Query and filter orders",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "List of orders with pagination" }
+        }
+      }
+    },
+    "/admin/orders/{id}/status": {
+      "patch": {
+        "summary": "Admin: Update order delivery pipeline status",
+        "description": "Validates status flow: PLACED -> CONFIRMED -> PACKED -> OUT_FOR_DELIVERY -> DELIVERED, or CANCELLED / REJECTED. Emits Socket.io event.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string" },
+                  "note": { "type": "string" },
+                  "deliveryBoy": { "type": "object" },
+                  "etaMinutes": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Order status updated and socket emitted" }
+        }
+      }
+    },
+    "/admin/orders/{id}/pricing": {
+      "patch": {
+        "summary": "Admin: Set item prices and delivery charges for prescription orders",
+        "description": "Updates prices of unpriced items, recalculates total bill, sets order status to AWAITING_CUSTOMER_CONFIRMATION, and notifies customer via Socket.io.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": { "type": "array", "items": { "type": "object" } },
+                  "deliveryCharge": { "type": "number" },
+                  "packagingCharge": { "type": "number" },
+                  "discount": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Order pricing updated and awaiting customer confirmation" }
+        }
+      }
+    }
+  }
+}

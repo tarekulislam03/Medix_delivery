@@ -6,7 +6,6 @@ import {
   Phone,
   WhatsappLogo,
   X,
-  Flask,
 } from '@phosphor-icons/react';
 import { useOrders } from '../lib/useOrders';
 import {
@@ -14,10 +13,6 @@ import {
   PAST_STATUS_KEYS,
   formatMonthYear,
 } from '../lib/orderStatus';
-import {
-  MOCK_ACTIVE_ORDERS,
-  MOCK_PAST_ORDERS,
-} from '../lib/medixMockData';
 import ActiveOrderCard from '../components/OrderCard';
 import PastOrderCard from '../components/PastOrderCard';
 import OrderDetailsSheet from '../components/OrderDetailsSheet';
@@ -65,32 +60,16 @@ export default function Orders() {
   const addMultipleItems = useCartStore((state) => state.addMultipleItems);
 
   const { orders: apiOrders = [], isLoading, cancelOrder } = useOrders();
-  const [cancelledMockIds, setCancelledMockIds] = useState([]);
   const [cancellingId, setCancellingId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [supportOrder, setSupportOrder] = useState(null);
   const [pastFilter, setPastFilter] = useState('ALL'); // 'ALL' | 'DELIVERED' | 'CANCELLED'
-  const [showEmptyDemo, setShowEmptyDemo] = useState(false);
   const [reorderToast, setReorderToast] = useState(null);
 
-  // Merge live API orders with realistic mock data when API returns empty so all states can be previewed immediately
+  // Live real orders only from database
   const allOrders = useMemo(() => {
-    if (showEmptyDemo) return [];
-    const baseList =
-      apiOrders && apiOrders.length > 0
-        ? apiOrders
-        : [...MOCK_ACTIVE_ORDERS, ...MOCK_PAST_ORDERS];
-
-    return baseList.map((order) =>
-      cancelledMockIds.includes(order._id)
-        ? {
-            ...order,
-            status: 'CANCELLED',
-            cancelReason: 'Cancelled by you before packing.',
-          }
-        : order
-    );
-  }, [apiOrders, cancelledMockIds, showEmptyDemo]);
+    return Array.isArray(apiOrders) ? apiOrders : [];
+  }, [apiOrders]);
 
   const activeOrders = useMemo(
     () => allOrders.filter((o) => ACTIVE_STATUS_KEYS.includes(o.status)),
@@ -145,13 +124,9 @@ export default function Orders() {
   const handleCancelOrder = async (orderId) => {
     setCancellingId(orderId);
     try {
-      if (String(orderId).startsWith('ord_')) {
-        setCancelledMockIds((prev) => [...prev, orderId]);
-      } else {
-        await cancelOrder({ orderId, reason: 'Cancelled by customer before packing' });
-      }
-    } catch {
-      setCancelledMockIds((prev) => [...prev, orderId]);
+      await cancelOrder({ orderId, reason: 'Cancelled by customer before packing' });
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
     } finally {
       setCancellingId(null);
     }
@@ -206,17 +181,6 @@ export default function Orders() {
             <h1 className="font-display font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em] text-[#0E1A14]">
               {t('your orders.')}
             </h1>
-
-            {/* Subtle preview toggle to inspect Empty state */}
-            <button
-              type="button"
-              onClick={() => setShowEmptyDemo((prev) => !prev)}
-              className="min-h-[36px] px-3 rounded-[999px] bg-white text-[#5E6B63] text-[14px] font-semibold inline-flex items-center gap-1.5 active:scale-95 transition-transform"
-              title="Toggle empty state preview"
-            >
-              <Flask weight="bold" className="w-4 h-4 text-[#003820]" />
-              <span>{showEmptyDemo ? t('Show orders') : t('Empty view')}</span>
-            </button>
           </div>
 
           {/* Two Pill Tabs: Active | Past */}

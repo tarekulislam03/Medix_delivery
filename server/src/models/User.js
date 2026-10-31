@@ -1,5 +1,22 @@
 import mongoose from 'mongoose';
 
+const addressSubSchema = new mongoose.Schema(
+  {
+    label: { type: String, default: 'Home' },
+    fullName: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    villagePo: { type: String, required: true, trim: true },
+    landmark: { type: String, default: '', trim: true },
+    pinCode: { type: String, required: true, trim: true },
+    isDefault: { type: Boolean, default: false },
+    geo: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [88.3639, 22.5726] }, // [lng, lat]
+    },
+  },
+  { _id: true, timestamps: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     role: {
@@ -7,6 +24,7 @@ const userSchema = new mongoose.Schema(
       enum: ['customer', 'pharmacy', 'rider', 'admin'],
       default: 'customer',
       required: true,
+      index: true,
     },
     name: {
       type: String,
@@ -16,6 +34,7 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true,
+      unique: true,
       trim: true,
       index: true,
     },
@@ -27,70 +46,39 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    storeName: {
-      type: String,
-      default: '',
-    },
-    vehicleNumber: {
-      type: String,
-      default: '',
-    },
-    area: {
-      type: String,
-      default: '',
-    },
-    notes: {
-      type: String,
-      default: '',
-    },
-    isActive: {
+    isNewUser: {
       type: Boolean,
       default: true,
     },
-    isAvailable: {
+    hasSeenWelcome: {
       type: Boolean,
-      default: true,
+      default: false,
     },
-    isOpen: {
-      type: Boolean,
-      default: true,
+    lastLoginAt: {
+      type: Date,
+      default: Date.now,
     },
-    acceptingOrders: {
-      type: Boolean,
-      default: true,
+    refreshTokenHash: {
+      type: String,
+      default: null,
     },
-    pharmacyRef: {
+    savedAddresses: [addressSubSchema],
+    defaultAddressId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Pharmacy',
       default: null,
     },
-    riderRef: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Rider',
-      default: null,
-    },
-    address: {
-      fullName: { type: String, default: '' },
-      villagePo: { type: String, default: '' },
-      pinCode: { type: String, default: '' },
-      landmark: { type: String, default: '' },
-      fullAddress: { type: String, default: '' },
-    },
-    cart: [
-      {
-        id: String,
-        name: String,
-        price: Number,
-        quantity: { type: Number, default: 1 },
-        requiresRx: { type: Boolean, default: false },
-        strength: { type: String, default: '' },
-        category: { type: String, default: '' },
-      },
-    ],
-    fcmToken: {
-      type: String,
-      default: null,
-    },
+    // Retain legacy store/rider fields for panel compatibility
+    storeName: { type: String, default: '' },
+    vehicleNumber: { type: String, default: '' },
+    area: { type: String, default: '' },
+    notes: { type: String, default: '' },
+    isActive: { type: Boolean, default: true },
+    isAvailable: { type: Boolean, default: true },
+    isOpen: { type: Boolean, default: true },
+    acceptingOrders: { type: Boolean, default: true },
+    pharmacyRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Pharmacy', default: null },
+    riderRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider', default: null },
+    fcmToken: { type: String, default: null },
   },
   {
     timestamps: true,
